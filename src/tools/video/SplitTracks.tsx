@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { clock, decimal, type SplitClip } from './media';
+import { Button, Input } from '../../common/ui/primitives';
 
 type Props = {
   clips: SplitClip[];
@@ -29,12 +30,13 @@ export default function SplitTracks({ clips, setClips, duration, playhead }: Pro
     setClips(current => [...current, { id: `clip-${Date.now()}-${current.length}`, start: decimal(start), end: decimal(Math.max(start + 0.01, end)) }]);
   }
   return <>
-    <div className="video-track-toolbar video-settings-wide">
-      <span>{clips.length} {clips.length === 1 ? 'clip' : 'clips'} · each on its own track</span>
-      <button type="button" onClick={add}><Plus size={13}/> Add clip track</button>
+    <div className="video-track-panel video-settings-wide">
+    <div className="video-track-toolbar">
+      <div><strong>Split ranges</strong><span>{clips.length} {clips.length === 1 ? 'range' : 'ranges'} · each saves as a separate file</span></div>
+      <Button type="button" size="sm" onClick={add}><Plus size={14}/> Add range</Button>
     </div>
     <div className="video-track-timeline video-settings-wide" aria-label="Split timeline">
-      {clips.length === 0 && <p className="video-tool-empty">No clip ranges yet.</p>}
+      {clips.length === 0 && <div className="video-track-empty"><strong>No split ranges yet</strong><span>Move the preview to a start point, then add a range.</span></div>}
       {clips.map((clip, index) => {
         const start = Number(clip.start) || 0;
         const end = Number(clip.end) || 0;
@@ -43,26 +45,27 @@ export default function SplitTracks({ clips, setClips, duration, playhead }: Pro
         const error = clipError(clip, duration);
         return <div className="video-track-group" key={clip.id}>
           <div className="video-track-row">
-            <span className="video-track-index">Clip {index + 1}</span>
+            <span className="video-track-index">Range {String(index + 1).padStart(2, '0')}</span>
             <div className="video-track-rail">
               <div className="video-track-clip" style={{ left: `${left}%`, width: `${width}%` }}>{decimal(Math.max(0, end - start))}s</div>
               <span className="video-track-playhead" style={{ left: `${Math.max(0, Math.min(100, playhead / total * 100))}%` }}/>
             </div>
             <span className="video-track-output">Output {String(index + 1).padStart(2, '0')}</span>
-            <button type="button" className="video-track-delete" aria-label={`Delete clip ${index + 1}`} onClick={() => setClips(current => current.filter((_, position) => position !== index))}><Trash2 size={13}/></button>
+            <Button type="button" variant="ghost" size="icon" className="video-track-delete" aria-label={`Delete clip ${index + 1}`} onClick={() => setClips(current => current.filter((_, position) => position !== index))}><Trash2 size={13}/></Button>
           </div>
           <div className="video-track-fields">
             <label className="video-tool-field">Start (s)
-              <input aria-label={`Clip ${index + 1} start`} aria-invalid={Boolean(error)} type="number" min="0" max={duration || 604800} step="0.01" value={clip.start} onChange={event => update(index, 'start', event.target.value)}/>
+              <Input aria-label={`Clip ${index + 1} start`} aria-invalid={Boolean(error)} type="number" min="0" max={duration || 604800} step="0.01" value={clip.start} onChange={event => update(index, 'start', event.target.value)}/>
             </label>
             <label className="video-tool-field">End (s)
-              <input aria-label={`Clip ${index + 1} end`} aria-invalid={Boolean(error)} type="number" min="0" max={duration || 604800} step="0.01" value={clip.end} onChange={event => update(index, 'end', event.target.value)}/>
+              <Input aria-label={`Clip ${index + 1} end`} aria-invalid={Boolean(error)} type="number" min="0" max={duration || 604800} step="0.01" value={clip.end} onChange={event => update(index, 'end', event.target.value)}/>
             </label>
             <span className="video-track-duration">Duration <b>{decimal(Math.max(0, end - start))}s</b></span>
           </div>
           {error && <p className="video-field-error" role="alert">{error}</p>}
         </div>;
       })}
+    </div>
     </div>
   </>;
 }

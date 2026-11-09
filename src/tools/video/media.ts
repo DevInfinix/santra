@@ -39,7 +39,7 @@ export const cropRect = (values: Record<string, string>, videoWidth: number, vid
   return {
     x: number('cropX', 0),
     y: number('cropY', 0),
-    width: number('cropWidth', videoWidth),
-    height: number('cropHeight', videoHeight),
+    width: number('cropWidth', Math.floor(videoWidth / 2) * 2),
+    height: number('cropHeight', Math.floor(videoHeight / 2) * 2),
   };
 };

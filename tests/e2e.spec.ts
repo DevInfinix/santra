@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { AudioEditorContext, Bridge, ImageEditorContext, Job, Snapshot, VideoEditorContext } from '../src/common/types';
 
@@ -16,7 +17,7 @@ interface MockControl {
   emitAudioContext(context: AudioEditorContext): void;
 }
 
-declare global { interface Window { __santraTest: MockControl } }
+declare global { interface Window { __santraTest: MockControl; __santraInlineVideo?: string } }
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/fixtures/preview.webm',route=>route.fulfill({path:fileURLToPath(new URL('./fixtures/preview.webm',import.meta.url)),contentType:'video/webm'}));
@@ -102,7 +103,7 @@ test.beforeEach(async ({ page }) => {
       preview: async filename => {
         record('preview', filename);
         const waveform = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="120"><path d="'+Array.from({length:100},(_,i)=>{const h=Math.abs(Math.sin(i*.7))*48+8;return `M${i*8+4} ${60-h}v${h*2}`}).join(' ')+'" fill="none" stroke="#ff5a00" stroke-width="3"/></svg>')}`;
-        if(/\.(mp4|mkv|webm)$/i.test(filename))return {url:'/fixtures/preview.webm',width:320,height:180,duration:4};
+        if(/\.(mp4|mkv|webm)$/i.test(filename))return {url:window.__santraInlineVideo || '/fixtures/preview.webm',width:320,height:180,duration:4};
         if (filename.endsWith('.wav')) {
           const bytes = new Uint8Array(44 + 32000 * 2), view = new DataView(bytes.buffer);
           const text = (offset: number, value: string) => bytes.set(new TextEncoder().encode(value), offset);
@@ -119,8 +120,8 @@ test.beforeEach(async ({ page }) => {
       onImageToolContext: callback => { imageContextListeners.add(callback); return () => { imageContextListeners.delete(callback); }; },
       videoToolContext: async () => {
         if (new URLSearchParams(location.search).has('late-context')) { if (!videoContext) throw new Error('Video editor is no longer available'); return structuredClone(videoContext); }
-        const merge = new URLSearchParams(location.search).get('operation') === 'merge';
-        return { capability: structuredClone(state.capabilities.find(capability => capability.id === (merge ? 'video:merge' : 'video:trim'))!), files: structuredClone(merge ? mergeVideos : droppedVideo), format: 'mp4', options: { quality: '85', stripMetadata: 'false' } };
+        const operation = new URLSearchParams(location.search).get('operation') || 'trim';
+        return { capability: structuredClone(state.capabilities.find(capability => capability.id === `video:${operation}`)!), files: structuredClone(operation === 'merge' ? mergeVideos : droppedVideo), format: 'mp4', options: { quality: '85', stripMetadata: 'false' } };
       },
       onVideoToolContext: callback => { videoContextListeners.add(callback); return () => { videoContextListeners.delete(callback); }; },
       applyVideoTool: async request => { record('applyVideoTool', request); return { queued: true }; },
@@ -492,11 +493,14 @@ test('global video tools wheel shows supported video operations and dispatches t
 });
 
 test('compact video editor provides exact trim values and submits a non-destructive queue recipe', async ({ page }, testInfo) => {
-  await page.goto('/?santra-video-tool=1');
-  const editor = page.getByRole('dialog', { name: 'Trim video' });
+  await page.goto('/?santra-video-tool=1&operation=split');
+  const editor = page.getByRole('dialog', { name: 'Split video' });
   await expect(editor).toBeVisible();
   await expect(editor.locator('.modal-header')).toContainText('clip.mp4');
-  await expect(editor.getByRole('slider', { name: 'Video preview timeline' })).toBeVisible();
+  const timeline = editor.getByRole('slider', { name: 'Video preview timeline' });
+  await expect(timeline).toBeVisible();
+  await expect(timeline).toBeEnabled();
+  await expect(editor.getByText('This video could not be played locally.')).toHaveCount(0);
   await editor.getByRole('button', {name:'Set start to playhead',exact:true}).click();
   expect(await page.evaluate(()=>window.__santraTest.calls.filter(call=>call.method==='applyVideoTool'))).toHaveLength(0);
   await editor.getByLabel('Start time (seconds)').fill('0.5');
@@ -507,6 +511,18 @@ test('compact video editor provides exact trim values and submits a non-destruct
   await expect.poll(() => page.evaluate(() => window.__santraTest.calls.find(call => call.method === 'applyVideoTool')?.value)).toMatchObject({
     format: 'mp4', files: ['/fixtures/clip.mp4'], options: { start: 0.5, duration: 2 },
   });
+});
+
+test('video editor turns a real inline MP4 preview into a playable blob URL', async ({ page }) => {
+  const sample = readFileSync(fileURLToPath(new URL('./sample-data/Screencast From 2026-05-03 16-23-54.mp4', import.meta.url))).toString('base64');
+  await page.addInitScript(value => { window.__santraInlineVideo = value; }, `data:video/mp4;base64,${sample}`);
+  await page.goto('/?santra-video-tool=1');
+  const editor = page.getByRole('dialog', { name: 'Trim video' });
+  const video = editor.getByLabel('Local video preview of clip.mp4');
+  await expect(video).toBeVisible();
+  await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).currentSrc)).toMatch(/^blob:/);
+  await expect(editor.getByRole('slider', { name: 'Video preview timeline' })).toBeEnabled();
+  await expect(editor.getByText('This video could not be played locally.')).toHaveCount(0);
 });
 
 test('preloaded image editor opens and refreshes its context on each tool launch', async ({ page }) => {

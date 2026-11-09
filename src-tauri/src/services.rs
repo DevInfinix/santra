@@ -1346,6 +1346,14 @@ fn run_local_job(
             .ok_or("Missing split segment index")?;
         base.push_str(&format!("-part-{index:03}"));
     }
+    if job.operation == "frames-gif" && job.format == "png" {
+        let index = job
+            .options
+            .get("frameIndex")
+            .and_then(Value::as_u64)
+            .ok_or("Missing frame index")?;
+        base.push_str(&format!("-frame-{index:03}"));
+    }
     if let Some(suffix) = job.options["sheetSuffix"].as_str() {
         base.push('-');
         base.push_str(suffix);
@@ -1698,7 +1706,9 @@ pub fn enqueue(
         "speed",
         "snapshot",
         "gif",
+        "frames-gif",
         "redact",
+        "crop-resize",
         "visualize",
         "extract-audio",
         "normalize",
@@ -1759,6 +1769,23 @@ pub fn enqueue(
         .map_err(|error| error.to_string())?;
     let segments = if request.operation == "split" {
         Some(split_segments(&request.options)?)
+    } else {
+        None
+    };
+    let frame_times = if request.operation == "frames-gif" && request.format == "png" {
+        let times = request.options.get("times").and_then(Value::as_array).ok_or("Select at least one frame")?;
+        if times.is_empty() || times.len() > 100 {
+            return Err("Select 1–100 frames to export".into());
+        }
+        let mut parsed = Vec::with_capacity(times.len());
+        for value in times {
+            let time = value.as_f64().ok_or("Invalid frame time")?;
+            if !time.is_finite() || !(0.0..=604_800.0).contains(&time) {
+                return Err("Invalid frame time".into());
+            }
+            parsed.push(time);
+        }
+        Some(parsed)
     } else {
         None
     };
@@ -1952,7 +1979,27 @@ pub fn enqueue(
             {
                 return Err("Select files supported by this local route".into());
             }
-            if let Some(segments) = &segments {
+            if let Some(times) = &frame_times {
+                for (index, time) in times.iter().enumerate() {
+                    let mut options = request.options.clone();
+                    let values = options.as_object_mut().ok_or("Invalid frame options")?;
+                    values.insert("time".into(), serde_json::json!(time));
+                    values.insert("frameIndex".into(), serde_json::json!(index + 1));
+                    jobs.push(Job {
+                        id: Uuid::new_v4().to_string(),
+                        input: inspected.path.clone(),
+                        name: inspected.name.clone(),
+                        operation: request.operation.clone(),
+                        format: request.format.clone(),
+                        status: "queued".into(),
+                        progress: 0,
+                        output: None,
+                        error: None,
+                        created_at: now.clone(),
+                        options,
+                    });
+                }
+            } else if let Some(segments) = &segments {
                 for (index, (start, duration)) in segments.iter().enumerate() {
                     let mut options = request.options.clone();
                     let values = options.as_object_mut().ok_or("Invalid split options")?;
@@ -2300,11 +2347,15 @@ pub async fn preview(
             },
         );
     }
-    // WebKitGTK can reject a dynamically registered custom scheme in a newly-created
-    // preview window before its first navigation settles. Still images are already
-    // bounded to 32 MiB above, so keep them in-process as a data URL. Audio/video
-    // stay on the range-capable protocol handler.
-    let url = if mime.starts_with("image/") {
+    // WebKitGTK does not reliably attach its media pipeline to custom URI schemes:
+    // the same bounded H.264/AAC preview that works from an HTTP or data URL can
+    // fail with MEDIA_ERR_SRC_NOT_SUPPORTED from `santra-media://`. Keep Linux
+    // previews in-process so video and audio editors work without exposing source
+    // paths or requiring a localhost server. Windows WebView2 retains the ranged
+    // protocol path. Every inlined result is bounded to 32 MiB above.
+    let inline_media =
+        cfg!(target_os = "linux") && (mime.starts_with("audio/") || mime.starts_with("video/"));
+    let url = if mime.starts_with("image/") || inline_media {
         let bytes = fs::read(&prepared).map_err(|error| error.to_string())?;
         format!("data:{mime};base64,{}", STANDARD.encode(bytes))
     } else if cfg!(windows) {

@@ -34,15 +34,21 @@
 .reference-editor .video-tool-note { font-size:12px; line-height:18px; }
 .reference-editor .audio-preview { flex:1; min-height:0; }
 .reference-editor-modal.reference-editor-stacked { width:min(1120px,calc(100vw - 20px)); height:min(940px,calc(100dvh - 20px)); }
-.reference-editor-stacked .reference-editor-body { display:flex; flex-direction:column; gap:12px; padding:14px 22px 0; }
-.reference-editor-stacked .reference-editor-preview { flex:1 1 auto; min-height:250px; }
-.reference-editor-stacked .reference-editor-settings { flex:0 0 auto; max-height:40%; overflow:auto; padding-bottom:6px; }
+.reference-editor-stacked .reference-editor-body-scroll { display:block; flex:1; min-height:0; overflow:hidden; padding:0 8px 0 0; }
+.reference-editor-stacked .reference-editor-body-scroll [data-slot="scroll-area-viewport"] { height:100%; }
+.reference-editor-stacked .reference-editor-stacked-content { min-height:100%; display:flex; flex-direction:column; gap:12px; padding:14px 14px 12px 22px; }
+.reference-editor-stacked .reference-editor-stacked-content .reference-editor-settings { flex:0 0 auto; max-height:none; overflow:visible; padding-bottom:6px; }
+.reference-editor-stacked .reference-editor-stacked-content .reference-editor-preview { flex:0 0 auto; }
+.video-tool-document .reference-editor-stacked-content .reference-editor-preview { height:auto; min-height:0; gap:10px; }
+.video-tool-document .reference-editor-stacked-content .video-tool-main { flex:none; min-height:0; }
+.video-tool-document .reference-editor-stacked-content .video-tool-stage { flex:none; height:min(46vh,370px); min-height:210px; }
+.video-tool-document .reference-editor-stacked-content .reference-editor-settings { margin-top:4px; padding-top:14px; border-top:1px solid #e6e8e1; }
+.video-tool-document .reference-editor-stacked-content .video-settings-grid { grid-template-columns:minmax(0,1fr); gap:14px; }
 .reference-editor-stacked .reference-editor-settings fieldset { display:block; }
 .reference-editor-stacked .reference-editor-footer { min-height:72px; padding:12px 22px; }
 .video-settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:12px 16px; align-items:start; }
 .video-settings-wide { grid-column:1 / -1; }
-@media(max-width:700px) { .reference-editor-stacked .reference-editor-settings { max-height:none; overflow:visible; } .reference-editor-stacked .reference-editor-body { overflow:auto; } }
-@media(max-width:700px) { .reference-editor-body { grid-template-columns:minmax(0,1fr); overflow:auto; } .reference-editor-preview { min-height:220px; } .reference-editor-settings { overflow:visible; } .reference-editor-footer { flex-wrap:wrap; padding:12px 16px; } .reference-editor-footer>div { flex-basis:100%; } .reference-editor-footer nav { margin-left:auto; } }
+@media(max-width:700px) { .reference-editor-stacked .reference-editor-body-scroll { overflow:hidden; } .reference-editor-stacked .reference-editor-stacked-content { padding:11px 12px 10px; } .reference-editor-stacked .reference-editor-preview { min-height:220px; } .video-tool-document .reference-editor-stacked-content .video-tool-stage { height:38vh; min-height:210px; } .reference-editor-footer { flex-wrap:wrap; padding:12px 16px; } .reference-editor-footer>div { flex-basis:100%; } .reference-editor-footer nav { margin-left:auto; } }
 .conversion-facts { display:grid; gap:12px; margin:0; font-size:13px; line-height:18px; }
 .conversion-facts dt { color:#6f7368; }
 .conversion-facts dd { margin:4px 0 0; padding:7px 10px; border:1px solid #e0e3dd; border-radius:8px; background:#fff; color:#33372e; }

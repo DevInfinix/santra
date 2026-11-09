@@ -1221,7 +1221,16 @@ impl MediaBackend {
                 _ => None,
             };
             if let Some(graph) = &redact_graph {
-                command.args(["-filter_complex", graph.as_str(), "-map", "[video]", "-sn", "-dn"]);
+                command.args([
+                    "-filter_complex",
+                    graph.as_str(),
+                    "-map",
+                    "[video]",
+                    "-c:v",
+                    encoder,
+                    "-sn",
+                    "-dn",
+                ]);
                 if operation == "mute" || operation == "audio-output" {
                     command.arg("-an");
                 } else {

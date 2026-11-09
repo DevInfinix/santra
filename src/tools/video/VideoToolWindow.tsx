@@ -16,12 +16,13 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import type { Capability, LocalFile } from '../../common/types';
 import { api } from '../../common/bridge';
+import { usePlayableMediaUrl } from '../../common/usePlayableMediaUrl';
 
 type Props = { capability: Capability; files: LocalFile[]; format: string; initialOptions: Record<string, unknown>; onClose: () => void; onApply: (format: string, options: Record<string, unknown>, orderedFiles: string[]) => Promise<unknown> };
 
 const operationTitle: Record<string, string> = {
   compress: 'Compress video', trim: 'Trim video', split: 'Split video', merge: 'Join videos',
-  'crop-resize': 'Crop & resize', 'rotate-flip': 'Rotate & flip', speed: 'Change speed',
+  'crop-resize': 'Crop video', 'rotate-flip': 'Rotate & flip', speed: 'Change speed',
   'frames-gif': 'Frames & GIF', 'audio-output': 'Mute & extract audio', redact: 'Redact video',
   'strip-metadata': 'Delete metadata',
 };
@@ -69,6 +70,7 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
   const [clips, setClips] = useState<SplitClip[]>(() => initialClips(initialOptions, Number(initialOptions.duration) || 0));
 
   const file = files[0];
+  const playablePreview = usePlayableMediaUrl(preview?.url);
   const outputFormats = capability.outputs;
   const videoWidth = intrinsic.width || preview?.width || 0;
   const videoHeight = intrinsic.height || preview?.height || 0;
@@ -103,7 +105,8 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
       if (!video.videoWidth || !video.videoHeight) return;
       const stageRect = stage.getBoundingClientRect();
       const videoRect = video.getBoundingClientRect();
-      setBounds({ left: videoRect.left - stageRect.left, top: videoRect.top - stageRect.top, width: videoRect.width, height: videoRect.height });
+      const next = { left: videoRect.left - stageRect.left, top: videoRect.top - stageRect.top, width: videoRect.width, height: videoRect.height };
+      setBounds(current => Math.abs(current.left - next.left) < 0.25 && Math.abs(current.top - next.top) < 0.25 && Math.abs(current.width - next.width) < 0.25 && Math.abs(current.height - next.height) < 0.25 ? current : next);
     };
     const observer = new ResizeObserver(update);
     observer.observe(stage);
@@ -296,8 +299,6 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
   }
 
   const cropInvalid = operation === 'crop-resize' && (!videoWidth || !videoHeight || crop.width < 2 || crop.height < 2 || !isEven(crop.width) || !isEven(crop.height) || crop.x < 0 || crop.y < 0 || crop.x + crop.width > videoWidth || crop.y + crop.height > videoHeight);
-  const resizeSet = values.width !== undefined || values.height !== undefined;
-  const resizeInvalid = operation === 'crop-resize' && resizeSet && (Number(values.width) < 2 || Number(values.height) < 2 || !isEven(Number(values.width)) || !isEven(Number(values.height)));
   const splitInvalid = operation === 'split' && (clips.length === 0 || clips.some(clip => clipError(clip, duration)));
   const trimInvalid = operation === 'trim' && (!(end > start) || start < 0 || (duration > 0 && end > duration + 0.02));
   const gifRangeInvalid = operation === 'frames-gif' && format === 'gif' && (!(end > start) || start < 0 || (duration > 0 && end > duration + 0.02));
@@ -311,11 +312,10 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
     if (framesInvalid) return 'Add at least one frame before exporting.';
     if (gifRangeInvalid) return 'Choose a valid GIF range within the video.';
     if (cropInvalid) return 'Choose an even-sized crop rectangle inside the video frame.';
-    if (resizeInvalid) return 'Output width and height must both be even and at least 2 pixels, or both blank.';
     if (redactInvalid) return masks.length === 0 ? 'Draw at least one redaction shape over the video.' : 'Each redaction track needs a valid time range within the video.';
     if (operation === 'merge' && files.length < 2) return 'Choose at least two video clips to join.';
     return '';
-  }, [files.length, trimInvalid, splitInvalid, framesInvalid, gifRangeInvalid, cropInvalid, resizeInvalid, redactInvalid, masks.length, operation]);
+  }, [files.length, trimInvalid, splitInvalid, framesInvalid, gifRangeInvalid, cropInvalid, redactInvalid, masks.length, operation]);
 
   async function apply() {
     if (busy || validation) return;
@@ -330,7 +330,6 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
       }
       if (operation === 'crop-resize') {
         Object.assign(options, { cropX: crop.x, cropY: crop.y, cropWidth: crop.width, cropHeight: crop.height });
-        if (resizeSet) Object.assign(options, { width: Number(values.width), height: Number(values.height) });
       }
       if (operation === 'rotate-flip') Object.assign(options, { angle: Number(values.angle || 0), direction: values.direction || 'none' });
       if (operation === 'speed') Object.assign(options, { factor: Number(values.factor || 1) });
@@ -419,10 +418,10 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
   const previewNode = <>
     <div className="video-preview-shell">
       <div className={`video-tool-stage ${operation === 'redact' ? 'is-drawing' : ''}`} ref={stageRef} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { cropDragRef.current = null; drawRef.current = null; setDraft(null); }}>
-        {preview?.url
+        {playablePreview.url
           ? <video
               ref={videoRef}
-              src={preview.url}
+              src={playablePreview.url}
               playsInline
               preload="metadata"
               aria-label={`Local video preview of ${file?.name}`}
@@ -442,7 +441,7 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
               onTimeUpdate={event => setPlayhead(event.currentTarget.currentTime)}
               onError={() => { setReady(false); setPlaying(false); setPlaybackError('This video could not be played locally.'); }}
             />
-          : <div className="video-tool-preview-empty">{previewError || 'Preparing local preview…'}</div>}
+          : <div className="video-tool-preview-empty">{playablePreview.error || previewError || 'Preparing local preview…'}</div>}
         {operation === 'crop-resize' && videoWidth > 0 && videoHeight > 0 && bounds.width > 0 && (
           <div className="video-crop-frame" style={selectionStyle(crop)} aria-label="Crop area">
             {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(handle => <span key={handle} data-crop-handle={handle} className={`crop-handle ${handle}`} aria-hidden="true"/>)}
@@ -484,7 +483,7 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
     {operation === 'compress' && <CompressControls values={values} set={set}/>}
     {operation === 'trim' && <TrimControls duration={duration} values={values} set={set} playhead={playhead}/>}
     {operation === 'split' && <SplitTracks clips={clips} setClips={setClips} duration={duration} playhead={playhead}/>}
-    {operation === 'crop-resize' && <CropResizeControls values={values} set={set} videoWidth={videoWidth} videoHeight={videoHeight} ratio={ratio} setRatio={setRatio} setCropRatio={setCropRatio}/>}
+    {operation === 'crop-resize' && <CropResizeControls ratio={ratio} setCropRatio={setCropRatio}/>}
     {operation === 'rotate-flip' && <RotateFlipControls values={values} set={set}/>}
     {operation === 'speed' && <SpeedControls values={values} set={set}/>}
     {operation === 'frames-gif' && <FramesGifControls format={format} values={values} set={set} frames={frames} setFrames={setFrames} playhead={playhead} seek={seek} duration={duration}/>}
