@@ -2,8 +2,8 @@ import { Input as UiNativeInput, NativeSelect as UiNativeSelect } from './ui/pri
 import type { Capability } from './types';
 
 interface Props { capability: Capability; values: Record<string, string>; onChange: (values: Record<string, string>) => void }
-const labels: Record<string, string> = { width: 'Width (px)', height: 'Height (px)', x: 'Left offset (px)', y: 'Top offset (px)', start: 'Start time (seconds)', duration: 'Duration (seconds)', end: 'End time (seconds)', angle: 'Rotation', direction: 'Flip direction', dpi: 'Render resolution (DPI)', page: 'Page number', pages: 'Page range', fps: 'Frames per second', bitrate: 'Audio bitrate (kbps)', sampleRate: 'Sample rate (Hz)', channels: 'Audio channels', quality: 'Quality' };
-const defaults: Record<string, string> = { width: '1280', height: '720', x: '0', y: '0', start: '0', duration: '10', angle: '90', direction: 'horizontal', dpi: '300', page: '1', pages: '1-z', fps: '12', bitrate: '128', sampleRate: '44100', channels: '2' };
+const labels: Record<string, string> = { width: 'Width (px)', height: 'Height (px)', x: 'Left offset (px)', y: 'Top offset (px)', start: 'Start time (seconds)', duration: 'Duration (seconds)', end: 'End time (seconds)', angle: 'Rotation', direction: 'Flip direction', dpi: 'Render resolution (DPI)', page: 'Page number', pages: 'Page range', fps: 'Frames per second', bitrate: 'Audio bitrate (kbps)', sampleRate: 'Sample rate (Hz)', channels: 'Audio channels', quality: 'Quality', reencode: 'Re-encode for compatibility' };
+const defaults: Record<string, string> = { width: '1280', height: '720', x: '0', y: '0', start: '0', duration: '10', angle: '90', direction: 'horizontal', dpi: '300', page: '1', pages: '1-z', fps: '12', bitrate: '128', sampleRate: '44100', channels: '2', reencode: 'true' };
 export default function OperationFields({ capability, values, onChange }: Props) {
   const schema = (capability.options && typeof capability.options === 'object' ? capability.options : {}) as Record<string, unknown>;
   const fields = Object.entries(schema).filter(([key]) => !['quality', 'stripMetadata', 'autoOrient'].includes(key));

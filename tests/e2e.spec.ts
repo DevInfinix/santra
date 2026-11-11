@@ -131,6 +131,12 @@ test.beforeEach(async ({ page }) => {
         if (new URLSearchParams(location.search).has('late-context')) { if (!audioContext) throw new Error('Audio editor is no longer available'); return structuredClone(audioContext); }
         return { capability: structuredClone(state.capabilities.find(capability => capability.id === 'audio:normalize')!), files: structuredClone(incoming.filter(file => file.category === 'audio')), format: 'wav', options: { loudness: '-16' } };
       },
+      audioVisualizePreview: async (path, options) => {
+        record('audioVisualizePreview', { path, options });
+        const width = Number(options.width), height = Number(options.height);
+        const artwork = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="${options.backgroundColor || '#ffffff'}"/><path d="M0 ${height/2} L${width/4} ${height/4} L${width/2} ${height*3/4} L${width*3/4} ${height/4} L${width} ${height/2}" fill="none" stroke="${options.waveColor || '#ff5a00'}" stroke-width="4"/></svg>`;
+        return { url: `data:image/svg+xml,${encodeURIComponent(artwork)}`, width, height };
+      },
       onAudioToolContext: callback => { audioContextListeners.add(callback); return () => { audioContextListeners.delete(callback); }; },
       applyAudioTool: async request => { record('applyAudioTool', request); return []; },
       closeAudioTool: async () => { record('closeAudioTool', null); },
@@ -755,6 +761,7 @@ test('audio editor window renders the waveform and sends the saved recipe', asyn
   const editor = page.getByRole('dialog', { name:'Normalize audio', exact:true });
   await expect(editor).toBeVisible();
   await expect(editor.getByRole('img', { name:/Waveform/ })).toBeVisible();
+  await expect(editor.getByLabel('Original audio preview')).toBeVisible();
   await editor.getByRole('spinbutton', { name:'Target loudness (LUFS)' }).fill('-18');
   await expect(editor.getByRole('spinbutton', { name:'True peak (dBTP)' })).toHaveValue('-1.5');
   await page.screenshot({ animations: 'disabled', path:testInfo.outputPath('03-audio-normalize.png') });
@@ -965,10 +972,74 @@ test('audio editor windows cover every supported audio operation',async({page},t
   await expect(editor).toBeVisible();
   await expect(editor.getByRole('button',{name:'Save new copy'})).toBeInViewport();
   await expect(editor.getByRole('img',{name:/Waveform/})).toBeVisible();
+  if(operation==='normalize') for(const control of ['Target loudness (LUFS)','Loudness range (LU)','True peak (dBTP)']) await expect(editor.getByRole('spinbutton',{name:control})).toBeVisible();
+  if(operation==='trim') for(const control of ['Start (seconds)','Duration (seconds)']) await expect(editor.getByRole('spinbutton',{name:control})).toBeVisible();
+  if(operation==='channels') await expect(editor.getByLabel('Output channels')).toBeVisible();
+  if(operation==='visualize') {
+   await expect(editor.getByLabel('Waveform style')).toBeVisible();
+   await expect(editor.getByLabel('Output format').locator('option')).toHaveCount(1);
+   await expect(editor.getByLabel('Output format').locator('option').first()).toHaveText('MP4');
+   await expect(editor.getByRole('spinbutton',{name:'Width (px)'})).toBeVisible();
+   await expect(editor.getByRole('spinbutton',{name:'Height (px)'})).toBeVisible();
+   await expect(editor.getByRole('img',{name:'Waveform preview: line, 1280 × 720'})).toBeVisible();
+   await editor.getByLabel('Waveform style').selectOption('p2p');
+   await editor.getByRole('spinbutton',{name:'Width (px)'}).fill('640');
+   await editor.getByRole('spinbutton',{name:'Height (px)'}).fill('360');
+   await expect(editor.getByRole('img',{name:'Waveform preview: p2p, 640 × 360'})).toBeVisible();
+   await expect.poll(()=>page.evaluate(()=>window.__santraTest.calls.filter(call=>call.method==='audioVisualizePreview').at(-1)?.value)).toMatchObject({
+    path:'/fixtures/tone.wav',options:{style:'p2p',width:'640',height:'360'},
+   });
+  }
+  if(operation==='compress') await expect(editor.getByText(/local encoder controls audio bitrate/i)).toBeVisible();
+  if(operation==='strip-metadata') await expect(editor.getByText(/removes copied tags and chapters/i)).toBeVisible();
   const box=await editor.boundingBox();expect(box!.width).toBeLessThanOrEqual(900);expect(box!.height).toBeLessThanOrEqual(700);
   await editor.screenshot({animations:'disabled',path:testInfo.outputPath(`03-audio-${operation}.png`)});
-  await editor.getByRole('button',{name:'Cancel',exact:true}).click();
+  if(operation==='visualize') {
+   await editor.getByRole('button',{name:'Save new copy'}).click();
+   await expect.poll(()=>page.evaluate(()=>window.__santraTest.calls.filter(call=>call.method==='applyAudioTool').at(-1)?.value)).toMatchObject({
+    format:'mp4',options:{style:'p2p',width:'640',height:'360'},
+   });
+  } else await editor.getByRole('button',{name:'Cancel',exact:true}).click();
  }
+});
+
+test('audio conversion, split, and merge expose working options in the operation picker',async({page})=>{
+ await page.goto('/');
+ await addFiles(page);
+ await page.evaluate(()=>window.__santraTest.emit({capabilities:[
+  {id:'audio:convert',operation:'convert',label:'Convert audio',category:'audio',inputs:['wav'],outputs:['mp3'],backend:'ffmpeg',available:true,batch:true,preservesMetadata:false},
+  {id:'audio:split',operation:'split',label:'Split audio',category:'audio',inputs:['wav'],outputs:['wav'],backend:'ffmpeg',available:true,batch:true,preservesMetadata:false,options:{start:{min:0,max:604800},duration:{min:0.01,max:604800}}},
+  {id:'audio:merge',operation:'merge',label:'Merge audio',category:'audio',inputs:['wav'],outputs:['wav'],backend:'ffmpeg',available:true,batch:false,preservesMetadata:false,options:{reencode:[true,false]}},
+ ]}));
+ await page.getByRole('button',{name:'Choose an operation'}).click();
+ await page.getByRole('tab',{name:/^Tools/}).click();
+ await page.getByRole('button',{name:/^Split audio/}).click();
+ await expect(page.getByRole('heading',{name:'Split audio',exact:true})).toBeVisible();
+ await expect(page.getByRole('spinbutton',{name:'Start time (seconds)'})).toBeVisible();
+ await expect(page.getByRole('spinbutton',{name:'Duration (seconds)'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'Start time (seconds)'}).fill('2');
+ await page.getByRole('spinbutton',{name:'Duration (seconds)'}).fill('5');
+ await page.getByRole('button',{name:'Run operation'}).click();
+ await expect.poll(()=>page.evaluate(()=>window.__santraTest.calls.filter(call=>call.method==='enqueue').at(-1)?.value)).toMatchObject({operation:'split',options:{start:'2',duration:'5'}});
+
+ await page.evaluate(()=>window.__santraTest.emitGlobalFiles([
+  {id:'audio-a',path:'/fixtures/a.wav',name:'a.wav',ext:'wav',size:2048,category:'audio'},
+  {id:'audio-b',path:'/fixtures/b.wav',name:'b.wav',ext:'wav',size:2048,category:'audio'},
+ ],'tools'));
+ await page.getByRole('button',{name:/^Merge audio/}).click();
+ await expect(page.getByRole('heading',{name:'Merge audio',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Re-encode for compatibility')).toHaveValue('true');
+ await page.getByLabel('Re-encode for compatibility').selectOption('false');
+ await page.getByRole('button',{name:'Run operation'}).click();
+ await expect.poll(()=>page.evaluate(()=>window.__santraTest.calls.filter(call=>call.method==='enqueue').at(-1)?.value)).toMatchObject({operation:'merge',options:{reencode:false}});
+
+ await page.evaluate(()=>window.__santraTest.emitGlobalFiles([
+  {id:'audio-c',path:'/fixtures/c.wav',name:'c.wav',ext:'wav',size:2048,category:'audio'},
+ ],'convert'));
+ await page.getByRole('button',{name:/^Convert audio · MP3/}).click();
+ await expect(page.getByRole('heading',{name:'Convert audio',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Output format')).toHaveValue('mp3');
+ await expect(page.getByRole('button',{name:'Run operation'})).toBeEnabled();
 });
 
 test('archive destination and collision choices affect only the submitted local job',async({page})=>{

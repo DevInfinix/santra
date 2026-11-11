@@ -39,6 +39,7 @@ export interface Bridge {
   applyVideoTool?(request: { format?: string; files?: string[]; options: Record<string, unknown> }): Promise<unknown>;
   closeVideoTool?(): Promise<unknown>;
   audioToolContext?(): Promise<AudioEditorContext>;
+  audioVisualizePreview?(path: string, options: Record<string, string>): Promise<{ url: string; width: number; height: number }>;
   onAudioToolContext?(callback: (context: AudioEditorContext) => void): () => void;
   openAudioTool?(request: { capabilityId: string; files: string[]; format: string; options: Record<string, string> }): Promise<unknown>;
   applyAudioTool?(request: { format?: string; options: Record<string, string> }): Promise<unknown>;

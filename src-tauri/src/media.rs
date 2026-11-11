@@ -576,6 +576,96 @@ impl MediaBackend {
         Ok(())
     }
 
+    pub fn visualize_preview(
+        &self,
+        input: &Path,
+        output: &Path,
+        options: &Value,
+        cancelled: impl Fn() -> bool,
+    ) -> Result<(u32, u32), String> {
+        let extension = input
+            .extension()
+            .and_then(|part| part.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !AUDIO_INPUTS.contains(&extension.as_str())
+            || !has(&self.demuxers, demuxer(&extension))
+            || !has(&self.filters, "showwaves")
+            || !has(&self.filters, "apad")
+            || !has(&self.filters, "color")
+            || !has(&self.filters, "overlay")
+            || !has(&self.filters, "format")
+            || !has(&self.encoders, "png")
+        {
+            return Err("Audio visualization preview is unavailable".into());
+        }
+        let width = bounded(options, "width", 1280.0, 2.0, 4096.0)?;
+        let height = bounded(options, "height", 720.0, 2.0, 4096.0)?;
+        if width.fract() != 0.0
+            || height.fract() != 0.0
+            || width * height > 8_294_400.0
+            || (width as u32) % 2 != 0
+            || (height as u32) % 2 != 0
+        {
+            return Err("Invalid waveform dimensions".into());
+        }
+        let style = options
+            .get("style")
+            .and_then(Value::as_str)
+            .unwrap_or("line");
+        if !["point", "line", "p2p", "cline"].contains(&style) {
+            return Err("Invalid waveform style".into());
+        }
+        let background = color(options, "backgroundColor", "#ffffff")?;
+        let wave = color(options, "waveColor", "#ff5a00")?;
+        let (width, height) = (width as u32, height as u32);
+        let graph = format!(
+            "color=c={background}:s={width}x{height}:r=25[background];[0:a:0]apad=pad_dur=1,showwaves=s={width}x{height}:r=25:mode={style}:colors={wave}:draw=full,format=rgba[wave];[background][wave]overlay=shortest=1:format=auto,format=rgb24,select='eq(n\\,24)'[preview]"
+        );
+        let ffmpeg = self.ffmpeg.as_ref().ok_or("FFmpeg is unavailable")?;
+        let mut command = Command::new(ffmpeg);
+        command
+            .args([
+                "-hide_banner",
+                "-nostdin",
+                "-v",
+                "error",
+                "-n",
+                "-protocol_whitelist",
+                "file",
+                "-f",
+                demuxer(&extension),
+                "-i",
+            ])
+            .arg(input)
+            .args([
+                "-filter_complex",
+                &graph,
+                "-map",
+                "[preview]",
+                "-frames:v",
+                "1",
+                "-vsync",
+                "0",
+                "-f",
+                "image2",
+                "-vcodec",
+                "png",
+            ])
+            .arg(output);
+        captured(command, Duration::from_secs(20), cancelled).map_err(safe_media_error)?;
+        let mut bytes = Vec::new();
+        fs::File::open(output)
+            .map_err(|_| "Audio visualization preview was not created")?
+            .take(5_000_001)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "Cannot read audio visualization preview")?;
+        if bytes.len() > 5_000_000 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+            return Err("Invalid audio visualization preview".into());
+        }
+        Ok((width, height))
+    }
+
     pub fn preview_details(&self, input: &Path) -> Option<Value> {
         let (video, audio) = self.merge_streams(input, &|| false).ok()?;
         if video.is_null() && audio.is_none() {
@@ -802,7 +892,7 @@ impl MediaBackend {
             }
             "normalize" => &["loudnorm", "aresample"][..],
             "channels" => &["aresample"][..],
-            "visualize" => &["showwaves", "color", "overlay", "format"][..],
+            "visualize" => &["showwaves", "apad", "color", "overlay", "format"][..],
             "redact" => &["drawbox", "overlay"][..],
             _ => return false,
         };
@@ -882,7 +972,7 @@ impl MediaBackend {
                     "label": label, "category": category,
                     "inputs": available_inputs, "outputs": available_outputs, "backend": "ffmpeg",
                     "available": !available_outputs.is_empty(), "batch": !["merge", "audio-output"].contains(&operation), "preservesMetadata": !["strip-metadata", "frames-gif", "audio-output"].contains(&operation),
-                    "options": if operation == "split" { json!({ "segments": "0-5,8-12" }) } else if operation == "merge" { json!({ "reencode": [true, false] }) } else { json!({}) },
+                    "options": if operation == "split" { json!({ "start": { "min": 0, "max": 604800 }, "duration": { "min": 0.01, "max": 604800 } }) } else if operation == "merge" { json!({ "reencode": [true, false] }) } else { json!({}) },
                     "warning": "" }));
             }
         }
@@ -1708,6 +1798,38 @@ mod tests {
             assert!(std::fs::read(&waveform)
                 .unwrap()
                 .starts_with(b"\x89PNG\r\n\x1a\n"));
+        }
+        if has(&backend.filters, "showwaves")
+            && has(&backend.filters, "apad")
+            && has(&backend.filters, "color")
+            && has(&backend.filters, "overlay")
+            && has(&backend.filters, "format")
+            && has(&backend.encoders, "png")
+        {
+            let preview = directory.join("visualize-preview.png");
+            let dimensions = backend
+                .visualize_preview(
+                    &input,
+                    &preview,
+                    &json!({
+                        "style": "p2p",
+                        "width": "320",
+                        "height": "180",
+                        "waveColor": "#ff5a00",
+                        "backgroundColor": "#ffffff"
+                    }),
+                    || false,
+                )
+                .unwrap();
+            let bytes = std::fs::read(&preview).unwrap();
+            assert_eq!(dimensions, (320, 180));
+            assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
+            assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 320);
+            assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 180);
+            let pixels = image::open(&preview).unwrap().to_rgb8();
+            assert!(pixels
+                .pixels()
+                .any(|pixel| pixel[0] == 255 && pixel[1] == 90 && pixel[2] == 0));
         }
         std::fs::remove_dir_all(directory).unwrap();
     }

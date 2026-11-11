@@ -45,6 +45,7 @@ export const tauriBridge: Bridge = {
   applyVideoTool: request => invoke('apply_video_tool', { request }),
   closeVideoTool: () => invoke('close_video_tool'),
   audioToolContext: () => invoke('audio_tool_context'),
+  audioVisualizePreview: (path, options) => invoke('audio_visualize_preview', { path, options }),
   onAudioToolContext: callback => subscription<AudioEditorContext>('santra:editor-context', callback),
   openAudioTool: request => invoke('open_audio_tool', { request }),
   applyAudioTool: request => invoke('apply_audio_tool', { request }),

@@ -274,6 +274,7 @@ fn main() {
             services::copy_diagnostic,
             services::image_preview,
             services::preview,
+            services::audio_visualize_preview,
             services::preview_context,
             services::close_preview,
             services::read_spreadsheet,

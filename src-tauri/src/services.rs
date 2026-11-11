@@ -148,6 +148,34 @@ struct EditorContext {
     options: Value,
 }
 
+fn preview_window_allows(window: &str, path: &str, audio_context: Option<&EditorContext>) -> bool {
+    ["workspace", "video"].contains(&window)
+        || window.starts_with("preview-")
+        || (window == "audio"
+            && audio_context
+                .is_some_and(|context| context.files.iter().any(|file| file.path == path)))
+}
+
+fn audio_visualize_request_matches(context: &EditorContext, request: &EnqueueRequest) -> bool {
+    let requested_files = request
+        .files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect::<HashSet<_>>();
+    let expected_files = context
+        .files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect::<HashSet<_>>();
+    context.capability["operation"] == "visualize"
+        && request.operation == "visualize"
+        && context.capability["outputs"]
+            .as_array()
+            .is_some_and(|outputs| outputs.iter().any(|output| output == &request.format))
+        && request.files.len() == context.files.len()
+        && requested_files == expected_files
+}
+
 #[derive(Clone)]
 struct PreviewEntry {
     path: PathBuf,
@@ -1645,15 +1673,20 @@ pub fn enqueue(
     state: State<'_, AppState>,
     request: EnqueueRequest,
 ) -> Result<Vec<Job>, String> {
-    require_window(&window, &["workspace", "wheel", "image", "video"])?;
-    if ["image", "video"].contains(&window.label()) {
+    require_window(&window, &["workspace", "wheel", "image", "video", "audio"])?;
+    if ["image", "video", "audio"].contains(&window.label()) {
         let data = state.lock()?;
         let context = if window.label() == "image" {
             data.image_context.as_ref()
-        } else {
+        } else if window.label() == "video" {
             data.video_context.as_ref()
+        } else {
+            data.audio_context.as_ref()
         }
         .ok_or("Editor context is unavailable")?;
+        if window.label() == "audio" && !audio_visualize_request_matches(context, &request) {
+            return Err("Editor request does not match the Visualize context".into());
+        }
         let expected = context.capability["operation"]
             .as_str()
             .ok_or("Invalid editor operation")?;
@@ -2168,8 +2201,12 @@ pub async fn preview(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<Value, String> {
-    if !["workspace", "video"].contains(&window.label()) && !window.label().starts_with("preview-")
-    {
+    let audio_context = if window.label() == "audio" {
+        state.lock()?.audio_context.clone()
+    } else {
+        None
+    };
+    if !preview_window_allows(window.label(), &path, audio_context.as_ref()) {
         return Err("Preview is unavailable in this window".into());
     }
     let source = state.known_path(&path, false)?;
@@ -2369,6 +2406,72 @@ pub async fn preview(
     if editor_video {
         result["previewDuration"] = serde_json::json!(30);
     }
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn audio_visualize_preview(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+    path: String,
+    options: Value,
+) -> Result<Value, String> {
+    if window.label() != "audio" {
+        return Err("Audio visualization preview is unavailable in this window".into());
+    }
+    if !options.is_object() || options.to_string().len() > 100_000 {
+        return Err("Invalid visualization preview options".into());
+    }
+    let context = state
+        .lock()?
+        .audio_context
+        .clone()
+        .ok_or("Audio editor is no longer available")?;
+    if context.capability["operation"] != "visualize"
+        || !context.files.iter().any(|file| file.path == path)
+    {
+        return Err("Visualization preview is outside its editor context".into());
+    }
+    let source = state.known_path(&path, false)?;
+    let metadata = check_no_symlink(&source)?;
+    if !metadata.is_file() || metadata.len() > 32 * 1024 * 1024 {
+        return Err("Preview input exceeds its size limit".into());
+    }
+    let backend = state
+        .media
+        .lock()
+        .map_err(|_| "Media backend is unavailable")?
+        .clone();
+    let directory = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?;
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let output = directory.join(format!("santra-audio-visualize-{}.png", Uuid::new_v4()));
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let rendered = backend.visualize_preview(&source, &output, &options, || false);
+        let result = rendered.and_then(|(width, height)| {
+            let mut bytes = Vec::new();
+            File::open(&output)
+                .map_err(|_| "Cannot read visualization preview")?
+                .take(5_000_001)
+                .read_to_end(&mut bytes)
+                .map_err(|_| "Cannot read visualization preview")?;
+            if bytes.len() > 5_000_000 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+                return Err("Invalid audio visualization preview".into());
+            }
+            Ok(serde_json::json!({
+                "url": format!("data:image/png;base64,{}", STANDARD.encode(bytes)),
+                "width": width,
+                "height": height,
+            }))
+        });
+        let _ = fs::remove_file(&output);
+        result
+    })
+    .await
+    .map_err(|error| error.to_string())??;
     Ok(result)
 }
 
@@ -3242,6 +3345,74 @@ fn remove_source_tree(path: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn audio_preview_is_scoped_to_the_active_editor_file() {
+        let context = EditorContext {
+            id: "audio-editor".into(),
+            capability: Value::Null,
+            files: vec![LocalFile {
+                id: "audio".into(),
+                path: "/local/tone.wav".into(),
+                name: "tone.wav".into(),
+                size: 0,
+                ext: "wav".into(),
+                category: "audio".into(),
+                is_directory: None,
+            }],
+            format: "wav".into(),
+            options: serde_json::json!({}),
+        };
+
+        assert!(preview_window_allows(
+            "audio",
+            "/local/tone.wav",
+            Some(&context)
+        ));
+        assert!(!preview_window_allows(
+            "audio",
+            "/local/other.wav",
+            Some(&context)
+        ));
+        assert!(!preview_window_allows("audio", "/local/tone.wav", None));
+        assert!(!preview_window_allows(
+            "settings",
+            "/local/tone.wav",
+            Some(&context)
+        ));
+        assert!(preview_window_allows("workspace", "/local/other.wav", None));
+    }
+
+    #[test]
+    fn audio_window_queues_only_the_active_visualize_recipe() {
+        let file = LocalFile {
+            id: "audio".into(),
+            path: "/local/tone.wav".into(),
+            name: "tone.wav".into(),
+            size: 0,
+            ext: "wav".into(),
+            category: "audio".into(),
+            is_directory: None,
+        };
+        let context = EditorContext {
+            id: "visualize-editor".into(),
+            capability: serde_json::json!({"operation":"visualize","outputs":["mp4"]}),
+            files: vec![file.clone()],
+            format: "mp4".into(),
+            options: serde_json::json!({}),
+        };
+        let request = EnqueueRequest {
+            files: vec![file],
+            operation: "visualize".into(),
+            format: "mp4".into(),
+            options: serde_json::json!({"style":"p2p"}),
+        };
+
+        assert!(audio_visualize_request_matches(&context, &request));
+        let mut wrong_operation = request;
+        wrong_operation.operation = "normalize".into();
+        assert!(!audio_visualize_request_matches(&context, &wrong_operation));
+    }
 
     #[test]
     fn drag_inspection_recognizes_mkv_and_never_walks_directories() {

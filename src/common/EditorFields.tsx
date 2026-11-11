@@ -1,7 +1,7 @@
 import { Slider as ShadcnSlider } from './ui/slider';
 import { Input as UiNativeInput } from './ui/primitives';
-export function Field({ label, value, onChange, min = 0, max = 16384 }: { label: string; value: string; onChange: (value: string) => void; min?: number; max?: number }) {
-  return <label className="image-tool-field"><span>{label}</span><UiNativeInput type="number" step="any" min={min} max={max} value={value} onChange={event => onChange(event.target.value)}/></label>;
+export function Field({ label, value, onChange, min = 0, max = 16384, step = 'any' }: { label: string; value: string; onChange: (value: string) => void; min?: number; max?: number; step?: number | 'any' }) {
+  return <label className="image-tool-field"><span>{label}</span><UiNativeInput type="number" step={step} min={min} max={max} value={value} onChange={event => onChange(event.target.value)}/></label>;
 }
 
 export function Slider({ label, value, min, max, step = 0.05, onChange }: { label: string; value: string; min: number; max: number; step?: number; onChange: (value: string) => void }) {
