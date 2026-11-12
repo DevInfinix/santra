@@ -213,16 +213,16 @@ export default function SpreadsheetEditor({
         }
         setMessage(
           isDesktop
-            ? "Worksheet outputs queued locally. Source preserved."
-            : "Worksheet outputs downloaded. Source preserved.",
+            ? "Worksheet outputs queued."
+            : "Worksheet outputs downloaded.",
         );
       } else {
         if (!chosen.length) throw Error("Choose at least one worksheet.");
         await process(worker.current, chosen, format, op === "strip-metadata");
         setMessage(
           isDesktop
-            ? "Output queued locally. Source preserved."
-            : "Output downloaded. Source preserved.",
+            ? "Output queued."
+            : "Output downloaded.",
         );
       }
     } catch (e) {
@@ -354,7 +354,7 @@ export default function SpreadsheetEditor({
           setChosen([]);
           setConfirmed(false);
           setFormat(context.format);
-          setMessage("Selections reset. Source unchanged.");
+          setMessage("Selections reset.");
         }}
         onSubmit={save}
         actionLabel="Save new output"

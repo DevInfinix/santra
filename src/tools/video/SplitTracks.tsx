@@ -2,12 +2,14 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { clock, decimal, type SplitClip } from './media';
 import { Button, Input } from '../../common/ui/primitives';
+import { Slider } from '../../common/ui/slider';
 
 type Props = {
   clips: SplitClip[];
   setClips: Dispatch<SetStateAction<SplitClip[]>>;
   duration: number;
   playhead: number;
+  singleRange?: boolean;
 };
 
 const clipError = (clip: SplitClip, duration: number) => {
@@ -19,7 +21,7 @@ const clipError = (clip: SplitClip, duration: number) => {
   return '';
 };
 
-export default function SplitTracks({ clips, setClips, duration, playhead }: Props) {
+export default function SplitTracks({ clips, setClips, duration, playhead, singleRange = false }: Props) {
   const total = duration || Math.max(1, ...clips.map(clip => Number(clip.end) || 0));
   function update(index: number, key: 'start' | 'end', value: string) {
     setClips(current => current.map((clip, position) => position === index ? { ...clip, [key]: value } : clip));
@@ -32,8 +34,8 @@ export default function SplitTracks({ clips, setClips, duration, playhead }: Pro
   return <>
     <div className="video-track-panel video-settings-wide">
     <div className="video-track-toolbar">
-      <div><strong>Split ranges</strong><span>{clips.length} {clips.length === 1 ? 'range' : 'ranges'} · each saves as a separate file</span></div>
-      <Button type="button" size="sm" onClick={add}><Plus size={14}/> Add range</Button>
+      <div><strong>{singleRange ? 'Trim range' : 'Split ranges'}</strong><span>{singleRange ? 'Choose the start and end of your saved copy' : `${clips.length} ${clips.length === 1 ? 'range' : 'ranges'} · each saves as a separate file`}</span></div>
+      {!singleRange && <Button type="button" size="sm" onClick={add}><Plus size={14}/> Add range</Button>}
     </div>
     <div className="video-track-timeline video-settings-wide" aria-label="Split timeline">
       {clips.length === 0 && <div className="video-track-empty"><strong>No split ranges yet</strong><span>Move the preview to a start point, then add a range.</span></div>}
@@ -44,15 +46,16 @@ export default function SplitTracks({ clips, setClips, duration, playhead }: Pro
         const width = Math.max(0.5, Math.min(100 - left, (Math.max(0, end - start)) / total * 100));
         const error = clipError(clip, duration);
         return <div className="video-track-group" key={clip.id}>
-          <div className="video-track-row">
+          <div className="video-track-row" style={singleRange ? {gridTemplateColumns:'64px minmax(0,1fr)'} : undefined}>
             <span className="video-track-index">Range {String(index + 1).padStart(2, '0')}</span>
             <div className="video-track-rail">
               <div className="video-track-clip" style={{ left: `${left}%`, width: `${width}%` }}>{decimal(Math.max(0, end - start))}s</div>
               <span className="video-track-playhead" style={{ left: `${Math.max(0, Math.min(100, playhead / total * 100))}%` }}/>
             </div>
-            <span className="video-track-output">Output {String(index + 1).padStart(2, '0')}</span>
-            <Button type="button" variant="ghost" size="icon" className="video-track-delete" aria-label={`Delete clip ${index + 1}`} onClick={() => setClips(current => current.filter((_, position) => position !== index))}><Trash2 size={13}/></Button>
+            {!singleRange && <><span className="video-track-output">Output {String(index + 1).padStart(2, '0')}</span>
+            <Button type="button" variant="ghost" size="icon" className="video-track-delete" aria-label={`Delete clip ${index + 1}`} onClick={() => setClips(current => current.filter((_, position) => position !== index))}><Trash2 size={13}/></Button></>}
           </div>
+          {singleRange && <Slider aria-label="Trim range" min={0} max={total} step={0.01} minStepsBetweenThumbs={1} value={[Math.max(0,Math.min(total,start)),Math.max(0,Math.min(total,end))]} onValueChange={([nextStart,nextEnd])=>setClips(current=>current.map((item,position)=>position===index?{...item,start:decimal(nextStart),end:decimal(nextEnd)}:item))}/>}
           <div className="video-track-fields">
             <label className="video-tool-field">Start (s)
               <Input aria-label={`Clip ${index + 1} start`} aria-invalid={Boolean(error)} type="number" min="0" max={duration || 604800} step="0.01" value={clip.start} onChange={event => update(index, 'start', event.target.value)}/>

@@ -49,6 +49,14 @@ fn has(text: &str, token: &str) -> bool {
         .any(|part| part == token)
 }
 
+fn waveform_draw_filter(style: &str) -> &'static str {
+    if style == "point" {
+        ",format=gbrap,dilation,format=rgba"
+    } else {
+        ",format=rgba"
+    }
+}
+
 fn color(options: &Value, key: &str, default: &str) -> Result<String, String> {
     let value = match options.get(key) {
         None => default,
@@ -534,6 +542,10 @@ impl MediaBackend {
         if audio.is_none() {
             return Err("Audio stream is missing".into());
         }
+        let duration = self.preview_details(input).and_then(|details| details["duration"].as_f64()).unwrap_or(1.0);
+        let sample_rate = audio.as_ref().and_then(|stream| stream["sample_rate"].as_str()).and_then(|value| value.parse::<f64>().ok()).unwrap_or(8000.0);
+        let width = (duration.min(300.0) * sample_rate).floor().clamp(1.0, 16000.0) as u32;
+        let filter = format!("showwavespic=s={width}x120:colors=0xff5a00");
         let ffmpeg = self.ffmpeg.as_ref().ok_or("FFmpeg is unavailable")?;
         let mut command = Command::new(ffmpeg);
         command
@@ -554,7 +566,7 @@ impl MediaBackend {
             .arg(input)
             .args([
                 "-filter_complex",
-                "showwavespic=s=800x120:colors=0xff5a00",
+                &filter,
                 "-frames:v",
                 "1",
                 "-f",
@@ -567,10 +579,10 @@ impl MediaBackend {
         let mut bytes = Vec::new();
         fs::File::open(output)
             .map_err(|_| "Audio waveform was not created")?
-            .take(1_000_001)
+            .take(5_000_001)
             .read_to_end(&mut bytes)
             .map_err(|_| "Cannot read audio waveform")?;
-        if bytes.len() > 1_000_000 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        if bytes.len() > 5_000_000 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
             return Err("Invalid audio waveform preview".into());
         }
         Ok(())
@@ -582,7 +594,7 @@ impl MediaBackend {
         output: &Path,
         options: &Value,
         cancelled: impl Fn() -> bool,
-    ) -> Result<(u32, u32), String> {
+    ) -> Result<(u32, u32, f64, f64, f64), String> {
         let extension = input
             .extension()
             .and_then(|part| part.to_str())
@@ -591,14 +603,25 @@ impl MediaBackend {
         if !AUDIO_INPUTS.contains(&extension.as_str())
             || !has(&self.demuxers, demuxer(&extension))
             || !has(&self.filters, "showwaves")
+            || !has(&self.filters, "dilation")
             || !has(&self.filters, "apad")
             || !has(&self.filters, "color")
             || !has(&self.filters, "overlay")
             || !has(&self.filters, "format")
-            || !has(&self.encoders, "png")
+            || !has(&self.encoders, "libx264")
+            || !has(&self.encoders, "aac")
         {
             return Err("Audio visualization preview is unavailable".into());
         }
+        let start = bounded(options, "start", 0.0, 0.0, 604_800.0)?;
+        let total_duration = self.preview_details(input)
+            .and_then(|details| details["duration"].as_f64())
+            .filter(|duration| duration.is_finite() && *duration > 0.0)
+            .ok_or("Audio duration is unavailable")?;
+        if start >= total_duration {
+            return Err("Preview start is outside the audio duration".into());
+        }
+        let duration = (total_duration - start).min(10.0);
         let width = bounded(options, "width", 1280.0, 2.0, 4096.0)?;
         let height = bounded(options, "height", 720.0, 2.0, 4096.0)?;
         if width.fract() != 0.0
@@ -619,8 +642,9 @@ impl MediaBackend {
         let background = color(options, "backgroundColor", "#ffffff")?;
         let wave = color(options, "waveColor", "#ff5a00")?;
         let (width, height) = (width as u32, height as u32);
+        let draw_filter = waveform_draw_filter(style);
         let graph = format!(
-            "color=c={background}:s={width}x{height}:r=25[background];[0:a:0]apad=pad_dur=1,showwaves=s={width}x{height}:r=25:mode={style}:colors={wave}:draw=full,format=rgba[wave];[background][wave]overlay=shortest=1:format=auto,format=rgb24,select='eq(n\\,24)'[preview]"
+            "color=c={background}:s={width}x{height}:r=30[background];[0:a:0]showwaves=s={width}x{height}:r=30:mode={style}:colors={wave}:draw=full{draw_filter}[wave];[background][wave]overlay=shortest=1:format=auto,format=yuv420p[preview]"
         );
         let ffmpeg = self.ffmpeg.as_ref().ok_or("FFmpeg is unavailable")?;
         let mut command = Command::new(ffmpeg);
@@ -635,6 +659,8 @@ impl MediaBackend {
                 "file",
                 "-f",
                 demuxer(&extension),
+                "-ss",
+                &start.to_string(),
                 "-i",
             ])
             .arg(input)
@@ -643,27 +669,20 @@ impl MediaBackend {
                 &graph,
                 "-map",
                 "[preview]",
-                "-frames:v",
-                "1",
-                "-vsync",
-                "0",
-                "-f",
-                "image2",
-                "-vcodec",
-                "png",
+                "-map", "0:a:0", "-t", &duration.to_string(), "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-movflags", "+faststart", "-f", "mp4",
             ])
             .arg(output);
-        captured(command, Duration::from_secs(20), cancelled).map_err(safe_media_error)?;
+        captured(command, Duration::from_secs(60), cancelled).map_err(safe_media_error)?;
         let mut bytes = Vec::new();
         fs::File::open(output)
             .map_err(|_| "Audio visualization preview was not created")?
-            .take(5_000_001)
+            .take(32_000_001)
             .read_to_end(&mut bytes)
             .map_err(|_| "Cannot read audio visualization preview")?;
-        if bytes.len() > 5_000_000 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        if bytes.len() > 32_000_000 || bytes.get(4..8) != Some(b"ftyp") {
             return Err("Invalid audio visualization preview".into());
         }
-        Ok((width, height))
+        Ok((width, height, start, duration, total_duration))
     }
 
     pub fn preview_details(&self, input: &Path) -> Option<Value> {
@@ -892,7 +911,7 @@ impl MediaBackend {
             }
             "normalize" => &["loudnorm", "aresample"][..],
             "channels" => &["aresample"][..],
-            "visualize" => &["showwaves", "apad", "color", "overlay", "format"][..],
+            "visualize" => &["showwaves", "dilation", "apad", "color", "overlay", "format"][..],
             "redact" => &["drawbox", "overlay"][..],
             _ => return false,
         };
@@ -972,7 +991,7 @@ impl MediaBackend {
                     "label": label, "category": category,
                     "inputs": available_inputs, "outputs": available_outputs, "backend": "ffmpeg",
                     "available": !available_outputs.is_empty(), "batch": !["merge", "audio-output"].contains(&operation), "preservesMetadata": !["strip-metadata", "frames-gif", "audio-output"].contains(&operation),
-                    "options": if operation == "split" { json!({ "start": { "min": 0, "max": 604800 }, "duration": { "min": 0.01, "max": 604800 } }) } else if operation == "merge" { json!({ "reencode": [true, false] }) } else { json!({}) },
+                    "options": if operation == "split" { json!({ "segments": "0-5,8-12" }) } else if operation == "merge" { json!({ "reencode": [true, false] }) } else { json!({}) },
                     "warning": "" }));
             }
         }
@@ -1152,7 +1171,8 @@ impl MediaBackend {
             }
             let background = color(options, "backgroundColor", "#111827")?;
             let wave = color(options, "waveColor", "#ff5a00")?;
-            let graph = format!("color=c={background}:s={width}x{height}:r={fps}[background];[0:a:0]showwaves=s={width}x{height}:r={fps}:mode={style}:colors={wave}:draw=full,format=rgba[wave];[background][wave]overlay=shortest=1:format=auto,format=yuv420p[video]");
+            let draw_filter = waveform_draw_filter(style);
+            let graph = format!("color=c={background}:s={width}x{height}:r={fps}[background];[0:a:0]showwaves=s={width}x{height}:r={fps}:mode={style}:colors={wave}:draw=full{draw_filter}[wave];[background][wave]overlay=shortest=1:format=auto,format=yuv420p[video]");
             let quality = numeric("quality", 75.0, 1.0, 100.0)?;
             command.args([
                 "-filter_complex",
@@ -1716,7 +1736,10 @@ mod tests {
         bytes.extend_from_slice(&16_u16.to_le_bytes());
         bytes.extend_from_slice(b"data");
         bytes.extend_from_slice(&16_000_u32.to_le_bytes());
-        bytes.resize(bytes.len() + 16_000, 0);
+        for sample in 0..8_000 {
+            let value = ((sample as f64 * 440.0 * std::f64::consts::TAU / 16_000.0).sin() * 16_000.0) as i16;
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
         std::fs::write(&input, bytes).unwrap();
         let details = backend.preview_details(&input).unwrap();
         assert!(details["duration"]
@@ -1799,14 +1822,15 @@ mod tests {
                 .unwrap()
                 .starts_with(b"\x89PNG\r\n\x1a\n"));
         }
-        if has(&backend.filters, "showwaves")
+        if backend.supports("audio", "visualize", "wav", "mp4")
+            && has(&backend.encoders, "png")
             && has(&backend.filters, "apad")
             && has(&backend.filters, "color")
             && has(&backend.filters, "overlay")
             && has(&backend.filters, "format")
             && has(&backend.encoders, "png")
         {
-            let preview = directory.join("visualize-preview.png");
+            let preview = directory.join("visualize-preview.mp4");
             let dimensions = backend
                 .visualize_preview(
                     &input,
@@ -1821,15 +1845,36 @@ mod tests {
                     || false,
                 )
                 .unwrap();
-            let bytes = std::fs::read(&preview).unwrap();
-            assert_eq!(dimensions, (320, 180));
-            assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
-            assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 320);
-            assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 180);
-            let pixels = image::open(&preview).unwrap().to_rgb8();
-            assert!(pixels
-                .pixels()
-                .any(|pixel| pixel[0] == 255 && pixel[1] == 90 && pixel[2] == 0));
+            assert_eq!((dimensions.0, dimensions.1), (320, 180));
+            let details = backend.preview_details(&preview).unwrap();
+            assert_eq!(details["width"], 320);
+            assert_eq!(details["height"], 180);
+            assert!(details["duration"].as_f64().is_some_and(|duration| duration > 0.0 && duration <= 10.1));
+            let (_, audio) = backend.merge_streams(&preview, &||false).unwrap();
+            assert!(audio.is_some());
+            let points = directory.join("points-chunk.mp4");
+            let chunk = backend.visualize_preview(&input, &points,
+                &json!({"start":"0.1","style":"point","width":"320","height":"180"}), || false).unwrap();
+            assert_eq!(chunk.2, 0.1);
+            assert!((chunk.3 - 0.4).abs() < 0.01);
+            assert!((chunk.4 - 0.5).abs() < 0.01);
+            let exported_points = directory.join("points-export.mp4");
+            backend.run(&input, &exported_points, "audio", "visualize", "mp4",
+                &json!({"style":"point","width":320,"height":180,"backgroundColor":"#ffffff"}), || false).unwrap();
+            for (index, video) in [&points, &exported_points].into_iter().enumerate() {
+                let frame = directory.join(format!("points-frame-{index}.png"));
+                let status = Command::new(backend.ffmpeg.as_ref().unwrap())
+                    .args(["-hide_banner", "-v", "error", "-ss", "0.2", "-i"])
+                    .arg(video).args(["-frames:v", "1"]).arg(&frame).status().unwrap();
+                assert!(status.success());
+                let pixels = image::open(&frame).unwrap().to_rgb8();
+                let orange = pixels.pixels().filter(|pixel| pixel[0] > 180 && pixel[1] > 30 && pixel[1] < 170 && pixel[2] < 80).count();
+                assert!(orange > 100, "Points waveform should remain visible after H.264 encoding");
+            }
+            assert!(backend.visualize_preview(&input, &directory.join("invalid.mp4"),
+                &json!({"start": -1}), || false).is_err());
+            assert!(backend.visualize_preview(&input, &directory.join("outside.mp4"),
+                &json!({"start": 1}), || false).is_err());
         }
         std::fs::remove_dir_all(directory).unwrap();
     }

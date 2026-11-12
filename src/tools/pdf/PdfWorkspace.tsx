@@ -103,7 +103,7 @@ export default function PdfWorkspace({
     [history, setHistory] = useState<Page[][]>([]),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(
-      "Choose a PDF. Processing stays on this device.",
+      "Choose a PDF.",
     ),
     [error, setError] = useState(false),
     [expanded, setExpanded] = useState<number | null>(null),
@@ -428,8 +428,8 @@ export default function PdfWorkspace({
         op === "compress"
           ? `Original ${(primary.bytes.length / 1024).toFixed(1)} KB → ${(bytes.length / 1024).toFixed(1)} KB. ${bytes.length < primary.bytes.length ? `${((1 - bytes.length / primary.bytes.length) * 100).toFixed(1)}% smaller.` : "No savings; output is larger."}`
           : isDesktop
-            ? "Output queued locally. Your original is preserved."
-            : "Output downloaded. Your original is preserved.",
+            ? "Output queued."
+            : "Output downloaded.",
       );
     } catch (e) {
       setError(true);

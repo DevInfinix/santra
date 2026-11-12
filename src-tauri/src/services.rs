@@ -156,7 +156,7 @@ fn preview_window_allows(window: &str, path: &str, audio_context: Option<&Editor
                 .is_some_and(|context| context.files.iter().any(|file| file.path == path)))
 }
 
-fn audio_visualize_request_matches(context: &EditorContext, request: &EnqueueRequest) -> bool {
+fn audio_editor_request_matches(context: &EditorContext, request: &EnqueueRequest) -> bool {
     let requested_files = request
         .files
         .iter()
@@ -167,8 +167,8 @@ fn audio_visualize_request_matches(context: &EditorContext, request: &EnqueueReq
         .iter()
         .map(|file| file.path.as_str())
         .collect::<HashSet<_>>();
-    context.capability["operation"] == "visualize"
-        && request.operation == "visualize"
+    ["visualize", "trim", "split", "normalize", "channels", "compress", "strip-metadata"].contains(&request.operation.as_str())
+        && context.capability["operation"] == request.operation
         && context.capability["outputs"]
             .as_array()
             .is_some_and(|outputs| outputs.iter().any(|output| output == &request.format))
@@ -1684,8 +1684,8 @@ pub fn enqueue(
             data.audio_context.as_ref()
         }
         .ok_or("Editor context is unavailable")?;
-        if window.label() == "audio" && !audio_visualize_request_matches(context, &request) {
-            return Err("Editor request does not match the Visualize context".into());
+        if window.label() == "audio" && !audio_editor_request_matches(context, &request) {
+            return Err("Editor request does not match its audio context".into());
         }
         let expected = context.capability["operation"]
             .as_str()
@@ -2403,6 +2403,11 @@ pub async fn preview(
     let mut result = details.unwrap_or_else(|| serde_json::json!({}));
     result["url"] = serde_json::json!(url);
     result["waveform"] = serde_json::json!(waveform);
+    if mime.starts_with("audio/") {
+        if let Some(duration) = result["duration"].as_f64() {
+            result["waveformDuration"] = serde_json::json!(duration.min(300.0));
+        }
+    }
     if editor_video {
         result["previewDuration"] = serde_json::json!(30);
     }
@@ -2448,23 +2453,26 @@ pub async fn audio_visualize_preview(
         .app_cache_dir()
         .map_err(|error| error.to_string())?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let output = directory.join(format!("santra-audio-visualize-{}.png", Uuid::new_v4()));
+    let output = directory.join(format!("santra-audio-visualize-{}.mp4", Uuid::new_v4()));
     let result = tauri::async_runtime::spawn_blocking(move || {
         let rendered = backend.visualize_preview(&source, &output, &options, || false);
-        let result = rendered.and_then(|(width, height)| {
+        let result = rendered.and_then(|(width, height, start, duration, total_duration)| {
             let mut bytes = Vec::new();
             File::open(&output)
                 .map_err(|_| "Cannot read visualization preview")?
-                .take(5_000_001)
+                .take(32_000_001)
                 .read_to_end(&mut bytes)
                 .map_err(|_| "Cannot read visualization preview")?;
-            if bytes.len() > 5_000_000 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+            if bytes.len() > 32_000_000 || bytes.get(4..8) != Some(b"ftyp") {
                 return Err("Invalid audio visualization preview".into());
             }
             Ok(serde_json::json!({
-                "url": format!("data:image/png;base64,{}", STANDARD.encode(bytes)),
+                "url": format!("data:video/mp4;base64,{}", STANDARD.encode(bytes)),
                 "width": width,
                 "height": height,
+                "start": start,
+                "duration": duration,
+                "totalDuration": total_duration,
             }))
         });
         let _ = fs::remove_file(&output);
@@ -3384,7 +3392,7 @@ mod tests {
     }
 
     #[test]
-    fn audio_window_queues_only_the_active_visualize_recipe() {
+    fn audio_window_queues_only_the_active_editor_recipe() {
         let file = LocalFile {
             id: "audio".into(),
             path: "/local/tone.wav".into(),
@@ -3408,10 +3416,15 @@ mod tests {
             options: serde_json::json!({"style":"p2p"}),
         };
 
-        assert!(audio_visualize_request_matches(&context, &request));
+        assert!(audio_editor_request_matches(&context, &request));
         let mut wrong_operation = request;
         wrong_operation.operation = "normalize".into();
-        assert!(!audio_visualize_request_matches(&context, &wrong_operation));
+        assert!(!audio_editor_request_matches(&context, &wrong_operation));
+        let mut trim_context = context;
+        trim_context.capability = serde_json::json!({"operation":"trim","outputs":["wav"]});
+        wrong_operation.operation = "trim".into();
+        wrong_operation.format = "wav".into();
+        assert!(audio_editor_request_matches(&trim_context, &wrong_operation));
     }
 
     #[test]

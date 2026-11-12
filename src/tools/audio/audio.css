@@ -17,3 +17,18 @@ html.audio-tool-document,html.audio-tool-document body,html.audio-tool-document 
 .audio-tool-state p { max-width:36rem; color:var(--muted); }
 .audio-tool-state button { padding:8px 14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text); }
 @media(max-width:760px) { .audio-editor-body { grid-template-columns: 1fr; } }
+.audio-select-field { display:grid; gap:6px; min-width:0; font-size:13px; }
+.audio-select-field .santra-select-trigger { min-width:0; max-width:100%; }
+.audio-fields { margin-top:0; min-width:0; gap:12px; }
+.audio-preview { padding:14px; gap:12px; overflow:hidden; }
+.audio-output-preview { flex:none; min-height:0; }
+.audio-output-preview img { height:90px; width:100%; object-fit:contain; }
+.audio-fields .video-track-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.audio-fields .video-track-duration { grid-column:1/-1; padding:0; }
+.audio-fields .video-track-group,.audio-fields .video-track-panel { min-width:0; }
+.audio-preview--visualize .audio-output-preview img { height:60px; }
+.audio-preview--visualize .audio-waveform-viewport { height:80px; }
+.audio-preview--visualize .audio-waveform-playhead .santra-slider-thumb { height:80px; }
+.audio-preview--visualize .audio-output-preview { flex:1; min-height:0; width:100%; }
+.visualize-video-preview { height:100%;display:flex;flex-direction:column;gap:10px;min-height:0; }
+.visualize-video-preview video { width:100%;flex:1;min-height:0;object-fit:contain;background:white;border-radius:8px; }

@@ -70,7 +70,7 @@ The reverse-scroll handoff is now stateless: scene channels and docking are func
 
 ## UI organization and availability
 
-The [feature UI structure](UI_STRUCTURE.md) separates tools, conversion reviews, and file actions. The white Penpot-based UI does not expand the registry: annotation/collage, secure PDF redaction, archive inspection, EPUB certification, and office conversion remain unavailable where not implemented/verified. Audio preview plays the original. Visualize also renders a local still preview using the selected waveform style and dimensions; normalization and channel settings affect the saved copy.
+The [feature UI structure](UI_STRUCTURE.md) separates tools, conversion reviews, and file actions. The white Penpot-based UI does not expand the registry: annotation/collage, secure PDF redaction, archive inspection, EPUB certification, and office conversion remain unavailable where not implemented/verified. Audio preview plays the original with a 10-second waveform viewport and a playhead that stays centered after five seconds. The real source waveform is bounded to the first 300 seconds; audio trim shares the video split range controls. Visualize also renders a local video preview covering the full source in buffered 10-second chunks for all four waveform styles, preserving the playback position when switching styles; normalization and channel settings affect the saved copy.
 
 Image rotate recipes additionally accept `flipHorizontal` and `flipVertical` booleans (or explicit `"true"`/`"false"` recipe strings). Flips apply after rotation and affect the new output only. Invalid flag values are rejected. No annotation, collage, or image-redaction route is enabled by this layout update.
 

@@ -2,9 +2,11 @@
 
 ## Status and scope
 
-**Reference proposal with implemented subset.** Audio tools now open an independent audio editor window, and the registry supports detected normalize, trim, channels, visualize, compress, split, merge, metadata-removal, and conversion routes. The editor surfaces normalize, channels, trim, visualize, compress, and metadata removal; split, merge, and conversion run from the wheel/queue paths without a dedicated control surface. See [UI structure](UI_STRUCTURE.md). The proposal sections below remain design guidance for the full audio workbench. The capability registry remains the source of truth.
+**Reference proposal with implemented subset.** Audio tools now open an independent audio editor window, and the registry supports detected normalize, trim, channels, visualize, compress, split, merge, metadata-removal, and conversion routes. The editor surfaces normalize, channels, trim, split, visualize, compress, and metadata removal; merge and conversion run from the wheel/queue paths without a dedicated control surface. See [UI structure](UI_STRUCTURE.md). The proposal sections below remain design guidance for the full audio workbench. The capability registry remains the source of truth.
 
 The references are interaction and layout inspiration only. Santra keeps its own citrus identity and Windows/Linux desktop conventions; do not reuse third-party branding, artwork, or copy. Processing remains local and offline-first, with no upload, account, cloud service, or default telemetry.
+
+Audio editor controls use the shared shadcn Select, Slider, Input and Button components. Trim reuses the video split range editor with one start/end range; audio Split opens its own editor using the same multi-range controls and exports each ordered range separately. Playback shows a moving 10-second window of the real source waveform: the playhead moves from zero to five seconds, then stays centered while the waveform scrolls. Waveform detail covers the first 300 seconds; playback and seeking remain available after that bound with a visible waveform availability message.
 
 ## Observed interaction model
 
@@ -114,3 +116,5 @@ Frontend ownership now follows `src/tools/<family>`, `src/convert/<family>`, `sr
 ## Penpot frame 03 implementation follow-up
 
 The wheel now uses the shared `common/ReferenceWheel.tsx` and family profile, with white segments, `#ff5a00` selection, correct family center/icon, and explicit empty states. Supported editors/reviews use the compact reference shell (PDF retains its validated native dialog). Only currently verified operations appear; proposal-only controls above are not enabled by this change. See [UI structure](UI_STRUCTURE.md) for current ownership and native drag classification.
+
+Visualize uses MP4 video output with source audio. Its preview buffers current and upcoming 10-second chunks in all four styles across the full source; switching styles retains the current playback position. Output dimensions are fixed at 1280×720. The reusable scrolling audio player remains in the other audio editors.

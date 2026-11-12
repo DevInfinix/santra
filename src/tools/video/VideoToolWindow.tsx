@@ -501,7 +501,7 @@ export default function VideoToolWindow({ capability, files: originalFiles, form
     layout="stacked"
     preview={previewNode}
     settings={settingsNode}
-    notice={validation || error || capability.warning || 'The original is kept. Output is processed locally.'}
+    notice={validation || error || capability.warning}
     error={Boolean(error)}
     output={`New ${format.toUpperCase()} copy · ${file?.name || 'selection'}`}
     busy={busy}
