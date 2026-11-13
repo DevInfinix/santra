@@ -19,7 +19,7 @@
     "build:windows-hook:cross": "node scripts/build-windows-hook.mjs --cross",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "cargo test --manifest-path src-tauri/Cargo.toml --locked && node --test native/windows/protocol.test.mjs",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml --locked && node --test native/windows/protocol.test.mjs tests/unit/*.test.mjs",
     "test:e2e": "playwright test",
     "dist": "npm run tauri:build",
     "dist:windows": "node scripts/dist-windows.mjs",

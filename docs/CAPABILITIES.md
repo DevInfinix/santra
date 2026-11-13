@@ -1,5 +1,7 @@
 # Capability specification and source registry
 
+Native drag startup: the host retains inspected files for the active drag generation. After registering its listener, the renderer recovers that inspection so a first drag cannot be lost during listener setup. Leaving or dropping invalidates recovery. Real Windows and GNOME file-manager drags still require manual validation.
+
 The `tauri-rt` branch uses Tauri and a runtime capability registry. Shift, Alt, and Ctrl each require two complete taps during an active drag before the wheel opens; a held modifier at drag start does not count. Dropping on a conversion slice queues a local job and closes the wheel without showing the workspace; failures close the wheel without opening the workspace. Rust image/subtitle/archive routes and detected FFmpeg, Poppler, qpdf, Pandoc, LibreOffice, and optional ExifTool routes are implemented in code. Rust raster processing removes metadata; detected ExifTool enables JPEG metadata editing as a same-format copy. FFmpeg includes snapshot, GIF, visualization, bounded redaction, split ranges, and ordered merge. The detailed status and native validation gaps are in `TAURI_PARITY_MATRIX.md`.
 
 Research date: 2026-10-19. Only the public [Tangerine website](https://tangerineformac.com/) was read. No application binary was downloaded, run, decompiled, or reverse engineered. Public marketing is evidence of advertised behavior, not a tested technical implementation or Santra compatibility.

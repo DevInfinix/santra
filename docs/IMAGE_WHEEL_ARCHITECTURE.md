@@ -1,5 +1,7 @@
 # Santra Image Wheel Architecture
 
+Native drag startup: the host retains inspected files for the active drag generation. After registering its listener, the renderer recovers that inspection so a first drag cannot be lost during listener setup. Leaving or dropping invalidates recovery. Real Windows and GNOME file-manager drags still require manual validation.
+
 Tauri migration note: `src-tauri/` owns native drops and Rust raster jobs with crop, resize, rotation, flip, adjustments, and generated background canvases. Detected ExifTool adds same-format JPEG metadata editing. The GNOME extension targets Tauri's single-instance wheel command; the Windows watcher is bundled by the Tauri NSIS config. The detailed design below includes previous-release behavior and future requirements. Metadata preservation across raster transforms, codec parity, and real global drags remain unverified or incomplete; see `TAURI_PARITY_MATRIX.md`.
 
 ## Product direction

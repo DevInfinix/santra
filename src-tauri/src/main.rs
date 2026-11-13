@@ -68,6 +68,49 @@ fn native_drag_generation(label: &str) -> &'static std::sync::atomic::AtomicU64 
     }
 }
 
+// Keep the current inspection available when Enter beats renderer listener setup.
+#[derive(Default)]
+struct DragInspection {
+    generation: u64,
+    files: Vec<services::LocalFile>,
+}
+impl DragInspection {
+    fn current(&self, generation: u64) -> Vec<services::LocalFile> {
+        if self.generation == generation {
+            self.files.clone()
+        } else {
+            Vec::new()
+        }
+    }
+}
+static WHEEL_INSPECTION: std::sync::Mutex<DragInspection> = std::sync::Mutex::new(DragInspection {
+    generation: 0,
+    files: Vec::new(),
+});
+static WORKSPACE_INSPECTION: std::sync::Mutex<DragInspection> =
+    std::sync::Mutex::new(DragInspection {
+        generation: 0,
+        files: Vec::new(),
+    });
+fn native_drag_inspection(label: &str) -> &'static std::sync::Mutex<DragInspection> {
+    if label == "wheel" {
+        &WHEEL_INSPECTION
+    } else {
+        &WORKSPACE_INSPECTION
+    }
+}
+
+#[tauri::command]
+fn current_native_drag(window: tauri::WebviewWindow) -> Result<Vec<services::LocalFile>, String> {
+    if !["wheel", "workspace"].contains(&window.label()) {
+        return Ok(Vec::new());
+    }
+    let inspection = native_drag_inspection(window.label())
+        .lock()
+        .map_err(|_| "Drag state is unavailable")?;
+    Ok(inspection.current(native_drag_generation(window.label()).load(Ordering::SeqCst)))
+}
+
 fn centered_wheel_origin(
     point: (i32, i32),
     size: (u32, u32),
@@ -262,6 +305,7 @@ fn main() {
             runtime_info,
             shell_hide_wheel,
             shell_wheel_mode,
+            current_native_drag,
             services::bootstrap,
             services::inspect_paths,
             services::consume_drop,
@@ -370,6 +414,14 @@ fn main() {
                         }
                         match files {
                             Ok(Ok(files)) => {
+                                if let Ok(mut inspection) =
+                                    native_drag_inspection(window.label()).lock()
+                                {
+                                    *inspection = DragInspection {
+                                        generation,
+                                        files: files.clone(),
+                                    };
+                                }
                                 let _ = window.emit("santra:native-drag-enter", files);
                             }
                             _ => {
@@ -426,6 +478,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn drag_recovery_rejects_finished_and_replaced_generations() {
+        let inspection = DragInspection {
+            generation: 7,
+            files: vec![services::LocalFile {
+                id: "drag-file".into(), path: "/tmp/photo.png".into(),
+                name: "photo.png".into(), size: 8, ext: "png".into(),
+                category: "image".into(), is_directory: None,
+            }],
+        };
+        assert_eq!(inspection.current(7)[0].name, "photo.png");
+        assert!(inspection.current(8).is_empty());
+        assert!(inspection.current(6).is_empty());
+    }
+
 
     #[test]
     fn wheel_centers_on_cursor_and_clamps_to_monitor_work_area() {

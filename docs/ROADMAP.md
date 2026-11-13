@@ -1,5 +1,7 @@
 # Implementation status and next work
 
+Native drag startup: the host retains inspected files for the active drag generation. After registering its listener, the renderer recovers that inspection so a first drag cannot be lost during listener setup. Leaving or dropping invalidates recovery. Real Windows and GNOME file-manager drags still require manual validation.
+
 The `tauri-rt` branch has Tauri as its sole desktop runtime. The React/Vite workspace, citrus wheel, compact editors, local Rust job queue, detected optional backends, GNOME command bridge, Windows watcher, and Windows/Linux package configuration are in code. This is **code completion work**, not a claim of feature parity. The integrated Windows 10/11 x64 and Ubuntu LTS x64 checks remain in [Phase 8](TAURI_VALIDATION_CHECKLIST.md). The [parity matrix](TAURI_PARITY_MATRIX.md) is the detailed migration ledger.
 
 | Area | Current code | Remaining acceptance work |

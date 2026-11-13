@@ -67,6 +67,21 @@ export const tauriBridge: Bridge = {
     const stopError = subscription<string>('santra:native-drop-error', message => onError?.(message));
     return () => { stopDrop(); stopError(); };
   },
-  onNativeDragEnter: callback => subscription<LocalFile[]>('santra:native-drag-enter', callback),
+  onNativeDragEnter: callback => {
+    let disposed = false;
+    let receivedEvent = false;
+    let unlisten: (() => void) | undefined;
+    // Register first, then recover an Enter that occurred during cold startup.
+    void listen<LocalFile[]>('santra:native-drag-enter', event => {
+      receivedEvent = true;
+      if (!disposed) callback(event.payload);
+    }).then(async stop => {
+      unlisten = stop;
+      if (disposed) { stop(); return; }
+      const files = await invoke<LocalFile[]>('current_native_drag');
+      if (!disposed && !receivedEvent && files.length) callback(files);
+    }).catch(error => console.error('Native drag listener setup failed:', error));
+    return () => { disposed = true; unlisten?.(); };
+  },
   onNativeDragOver: callback => subscription<{ x: number; y: number }>('santra:native-drag-over', callback),
 };
