@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { seoPages } from './seo-build';
 import tailwindcss from '@tailwindcss/vite';
 import { createReadStream, statSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -37,7 +38,7 @@ const devDownloads: Plugin = {
 export default defineConfig({
   root: import.meta.dirname,
   publicDir: resolve(import.meta.dirname, '../public'),
-  plugins: [react(), tailwindcss(), devDownloads],
+  plugins: [react(), tailwindcss(), devDownloads, seoPages()],
   server: { host: '127.0.0.1', fs: { allow: [resolve(import.meta.dirname, '..')] } },
   build: { outDir: 'dist', emptyOutDir: true },
 });

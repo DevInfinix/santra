@@ -68,7 +68,7 @@ export async function inspectFile(file: File): Promise<FileInfo> {
         if (extension === 'vtt' || extension === 'srt')
             return { kind: 'subtitles', extension, mime: extension === 'vtt' ? 'text/vtt' : 'application/x-subrip', text };
         if (['csv', 'tsv'].includes(extension))
-            return { kind: 'spreadsheets', extension, mime: 'text/csv', text, warning: 'Spreadsheet conversion is disabled in the current product. You can download the source or create an archive.' };
+            return { kind: 'spreadsheets', extension, mime: 'text/csv', text, warning: 'Spreadsheet conversion, worksheet splitting, and metadata deletion run locally in Santra desktop. This browser playground does not load the spreadsheet editor.' };
         return { kind: 'documents', extension, mime: 'text/plain', text, warning: 'Document format conversion requires locally verified Pandoc routes in the desktop app.' };
     }
     return { kind: 'unknown', extension, mime: file.type || 'application/octet-stream', warning: 'No verified editing or conversion route is available for this file. Its contents will not be executed.' };

@@ -19,7 +19,7 @@ const sampleFiles: Record<string, string> = {
   spreadsheets: 'quarter.xlsx',
 };
 const formatExtensions: Record<string, string> = { JPG: 'jpg', Markdown: 'md', WebP: 'webp', Opus: 'opus', 'Extract archive': 'folder' };
-const defaultFormats: Record<string, string> = { images: 'WebP', video: 'WebM', audio: 'MP3', pdf: 'PNG', documents: 'DOCX', subtitles: 'VTT', archives: 'TAR' };
+const defaultFormats: Record<string, string> = { images: 'WebP', video: 'WebM', audio: 'MP3', pdf: 'PNG', documents: 'DOCX', subtitles: 'VTT', archives: 'TAR', spreadsheets: 'XLSX' };
 
 function startingStep(family: Family): TourStep {
   if (family.outputs.length) return { familyId: family.id, mode: 'convert', index: Math.max(0, family.outputs.findIndex(item => item.label === defaultFormats[family.id])) };
@@ -49,6 +49,7 @@ function outputName(family: Family, mode: Mode, operation?: WheelOption) {
     return `${stem}-converted.${formatExtensions[operation.label] ?? operation.label.toLowerCase()}`;
   }
   const special: Record<string, string> = {
+    'Split worksheets': `${stem}-Sheet1.xlsx`,
     'Extract archive': `${stem}-extracted/`,
     'Render page': `${stem}-page-001.png`,
     'Snapshot': `${stem}-frame-001.png`,
@@ -200,7 +201,7 @@ export function ToolsPage({ onInstall }: { onInstall: () => void }) {
       <div className="tool-ledger-rows">
         <div className="ledger-row"><span className="ledger-index">01 / BUILT IN</span><h3>Everyday work, ready locally.</h3><p>Raster images, SRT/VTT subtitles, and bounded ZIP/TAR/GZIP workflows.</p><span className="ledger-mark status-bundled"/></div>
         <div className="ledger-row"><span className="ledger-index">02 / WHEN DETECTED</span><h3>More range from local engines.</h3><p>FFmpeg media, qpdf and Poppler PDF actions, and verified Pandoc document routes.</p><span className="ledger-mark status-conditional"/></div>
-        <div className="ledger-row"><span className="ledger-index">03 / NOT ENABLED</span><h3>Planned, clearly marked.</h3><p>The audio editor animations are design concepts. Office conversion, PDF reconstruction, and other proposed routes remain disabled in the app.</p><span className="ledger-mark status-disabled"/></div>
+        <div className="ledger-row"><span className="ledger-index">03 / NOT ENABLED</span><h3>Planned, clearly marked.</h3><p>The audio editor animations are design concepts. Spreadsheet conversion, worksheet splitting, and metadata deletion are available in the desktop app; other proposed routes remain subject to their listed limits.</p><span className="ledger-mark status-disabled"/></div>
       </div>
     </section>
 

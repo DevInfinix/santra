@@ -1,0 +1,36 @@
+# Santra
+
+> Santra is an offline-first file conversion and editing desktop application for Windows x64 and Linux x64. Files are processed locally, without conversion uploads or accounts. The current release is a development preview.
+
+The website contains an illustrative tool catalogue and a limited browser playground. Desktop tool availability depends on the selected file, validation, and any required detected local engine. Website animations do not execute desktop tools.
+
+Spreadsheet conversion and tools are bundled in the desktop app through a local SheetJS worker; LibreOffice is not required. Supported inputs are XLSX, XLS, ODS, CSV, and TSV. Conversion outputs are XLSX, XLS, ODS, CSV, TSV, and layout-limited PDF. Tools include Split worksheets and Delete metadata. Multi-sheet conversion writes separate outputs per worksheet. Formulas are not recalculated. Rewriting may lose unsupported parts, macros, charts, links, and formatting; metadata deletion is not a forensic scrubber. One workbook is accepted per operation, with a 32 MB input limit and a 256-sheet limit.
+
+Raster image processing, subtitle conversion, and archive routes are bundled. Video and audio routes depend on compatible local FFmpeg support; document conversion depends on verified Pandoc routes. JPEG metadata editing additionally requires ExifTool. The repository's capability documentation is the source for current support; some website catalogue descriptions lag behind the desktop app.
+
+## Website
+
+- [Home](https://santra.singhaman.me/): Product overview and limited browser playground.
+- [Tools](https://santra.singhaman.me/tools): Illustrative catalogue of file families, operations, and limitations.
+- [Use cases](https://santra.singhaman.me/usecase): Everyday workflows.
+- [Install](https://santra.singhaman.me/install): Windows and Linux package choices.
+- [Pricing](https://santra.singhaman.me/pricing): Current development preview pricing.
+
+## Practical guides
+
+- [Guides](https://santra.singhaman.me/guides): Practical local file workflows with examples, steps, and limitations.
+- [XLSX to CSV](https://santra.singhaman.me/guides/xlsx-to-csv-offline): Export every worksheet without uploading the workbook.
+- [Split Excel worksheets](https://santra.singhaman.me/guides/split-excel-worksheets): Separate selected tabs into local files.
+- [WebP to PNG](https://santra.singhaman.me/guides/webp-to-png-offline): Convert raster images locally.
+- [Remove photo metadata](https://santra.singhaman.me/guides/remove-photo-metadata): Rewrite an image with supported metadata removed and understand the limits.
+- [Trim video](https://santra.singhaman.me/guides/trim-video-offline): Save a useful clip with compatible local FFmpeg support.
+- [Markdown to DOCX](https://santra.singhaman.me/guides/markdown-to-docx-offline): Hand off an editable document using a verified Pandoc route.
+- [SRT to VTT](https://santra.singhaman.me/guides/srt-to-vtt-offline): Convert subtitles with cue timing validation.
+- [Extract ZIP safely](https://santra.singhaman.me/guides/extract-zip-safely): Understand bounded local extraction and unsafe-entry checks.
+
+## Source and support
+
+- [GitHub](https://github.com/SinghAman21/santara): Source code and project information.
+- [Releases](https://github.com/SinghAman21/santara/releases): Desktop release assets.
+- [Capabilities](https://github.com/SinghAman21/santara/blob/d2c/docs/CAPABILITIES.md): Detailed supported operations and limits.
+- [Issues](https://github.com/SinghAman21/santara/issues): Bug reports and feature requests.

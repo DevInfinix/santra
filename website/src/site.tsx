@@ -1,29 +1,32 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LandingPage } from './landing/LandingPage';
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, CircleHelp, FileImage, FileText, FileVideo, HardDriveDownload, Leaf, LockKeyhole, Menu, Monitor, Moon, PackageCheck, ShieldCheck, Sun, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, CircleHelp, FileImage, FileText, FileVideo, Github, HardDriveDownload, Leaf, LockKeyhole, Menu, Monitor, Moon, PackageCheck, ShieldCheck, Sun, X } from 'lucide-react';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader } from './components/ui/card';
 import { ToolsPage } from './pages/ToolsPage';
+import { GuideIndex, GuideArticle, UsecaseArticle } from './pages/GuidePages';
+import { guides } from './content/guides';
+import { usecases } from './content/usecases';
+import { applyPageMeta } from './seo';
 
-type Route = 'home' | 'tools' | 'usecase' | 'pricing' | 'install';
-const paths: Record<Route, string> = { home: '/', tools: '/tools', usecase: '/usecase', pricing: '/pricing', install: '/install' };
-const routeTitle: Record<Route, string> = { home: 'Santra — A little orange. A lot of possibilities.', tools: 'Tools — Santra', usecase: 'Use cases — Santra', pricing: 'Pricing — Santra', install: 'Install — Santra' };
-const cases = [
-  { number: '01', title: 'A photo needs to fit.', copy: 'Resize a batch for a listing, crop a cover image, or strip location details before sharing. The untouched original stays put.', icon: FileImage, tags: ['Resize', 'Crop', 'Metadata'] },
-  { number: '02', title: 'A clip has one good moment.', copy: 'Trim the useful seconds, save a frame, or make a small GIF. Video actions appear when a compatible local FFmpeg install is found.', icon: FileVideo, tags: ['Trim', 'Snapshot', 'GIF'] },
-  { number: '03', title: 'A document needs to travel.', copy: 'Move text between practical formats with Pandoc when the required readers and writers are installed. Fidelity can vary by source.', icon: FileText, tags: ['DOCX', 'Text', 'Markdown'] },
-  { number: '04', title: 'Files landed in the wrong place.', copy: 'Copy, move, reveal, or copy a path from the same file workspace. Originals remain the default.', icon: HardDriveDownload, tags: ['Copy', 'Move', 'Reveal'] },
-];
-
-function routeFromPath(path: string): Route { return (Object.keys(paths) as Route[]).find((key) => paths[key] === path) ?? 'home'; }
+type BaseRoute = 'home' | 'tools' | 'usecase' | 'guides' | 'pricing' | 'install';
+type Route = BaseRoute | 'guide' | 'usecase-detail' | 'notfound';
+const paths: Record<BaseRoute, string> = { home: '/', tools: '/tools', usecase: '/usecase', guides: '/guides', pricing: '/pricing', install: '/install' };
+const caseIcons: Record<string, typeof FileImage> = { images: FileImage, video: FileVideo, documents: FileText, archives: HardDriveDownload, spreadsheets: FileText };
+function routeFromPath(path: string): Route {
+  const clean = path.replace(/\/$/, '') || '/';
+  if (guides.some(guide => clean === `/guides/${guide.slug}`)) return 'guide';
+  if (usecases.some(usecase => clean === `/usecase/${usecase.slug}`)) return 'usecase-detail';
+  return (Object.keys(paths) as BaseRoute[]).find(key => paths[key] === clean) ?? 'notfound';
+}
 function navigate(path: string) {
   if (path === window.location.pathname) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   window.history.pushState({}, '', path);
   window.dispatchEvent(new PopStateEvent('popstate'));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function Link({ to, className = '', children, onClick, ...props }: { to: Route; className?: string; children: ReactNode; onClick?: () => void } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+function Link({ to, className = '', children, onClick, ...props }: { to: BaseRoute; className?: string; children: ReactNode; onClick?: () => void } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   return <a href={paths[to]} className={className} onClick={(event) => { onClick?.(); if (!event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0 && event.currentTarget.target !== '_blank') { event.preventDefault(); navigate(paths[to]); } }} {...props}>{children}</a>;
 }
 function Mark() { return <img className="site-mark" src="/santra.png" alt="" aria-hidden="true"/>; }
@@ -31,7 +34,7 @@ function Header({ route }: { route: Route }) {
   const [menu, setMenu] = useState(false); const [dark, setDark] = useState(() => localStorage.getItem('santra-theme') === 'dark');
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('santra-theme', dark ? 'dark' : 'light'); }, [dark]);
   useEffect(() => { setMenu(false); }, [route]);
-  const links: Array<[Route, string]> = [['tools', 'Tools'], ['usecase', 'Use cases'], ['pricing', 'Pricing']];
+  const links: Array<[BaseRoute, string]> = [['tools', 'Tools'], ['usecase', 'Use cases'], ['guides', 'Guides'], ['pricing', 'Pricing']];
   return <header className={`${route === 'home' ? 'citrus-site-header ' : ''}site-header sticky top-0 z-[var(--z-dropdown)] border-b border-line/80 bg-paper/90 backdrop-blur-xl`}>
     <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-3 px-5 py-3.5 sm:px-8 lg:px-12">
       <Link to="home" aria-label="Santra home" className="group inline-flex min-h-11 items-center gap-2.5"><Mark/><span className="font-display text-[24px] tracking-[-.055em] text-ink">santra<span className="text-orange">.</span></span></Link>
@@ -39,6 +42,7 @@ function Header({ route }: { route: Route }) {
         {links.map(([id, label]) => <Link key={id} to={id} aria-current={route === id ? 'page' : undefined} className={`min-h-11 rounded-full px-4 py-3 text-sm transition hover:bg-surface-soft hover:text-action focus-visible:outline-2 focus-visible:outline-action ${route === id ? 'font-semibold text-action' : 'text-muted'}`}>{label}</Link>)}
       </nav>
       <div className="flex flex-wrap items-center gap-2">
+        <a href="https://github.com/SinghAman21/santara" target="_blank" rel="noopener noreferrer" aria-label="Santra on GitHub (opens in a new tab)" className="inline-flex min-h-11 items-center gap-2 rounded-full px-2 text-sm text-muted transition hover:text-action focus-visible:outline-2 focus-visible:outline-action"><Github size={18} aria-hidden="true"/><span className="hidden sm:inline">GitHub</span></a>
         <Button hidden={route === 'home'} variant="ghost" size="icon" aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setDark(!dark)}>{dark ? <Sun size={18}/> : <Moon size={18}/>}</Button>
         <Link to="install" className="site-cta inline-flex min-h-11 items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-action-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action">Get Santra <ArrowDown size={15}/></Link>
         <Button variant="outline" size="icon" className="md:hidden" aria-label={menu ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>{menu ? <X size={18}/> : <Menu size={18}/>}</Button>
@@ -46,7 +50,7 @@ function Header({ route }: { route: Route }) {
     </div>
   </header>;
 }
-function Footer({ home = false }: { home?: boolean }) { return <footer className={`${home ? 'citrus-site-footer ' : ''}border-t border-line bg-surface`}><div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-7 px-5 py-8 sm:px-8 md:grid-cols-[1fr_auto] md:items-center lg:px-12"><Link to="home" className="inline-flex min-h-11 items-center gap-2.5"><Mark/><span className="font-display text-xl tracking-tight">santra<span className="text-orange">.</span></span></Link><div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Link to="tools" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Tools</Link><Link to="usecase" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Use cases</Link><Link to="pricing" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Pricing</Link><Link to="install" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Install</Link></div><p className="m-0 text-xs text-muted md:col-span-2">Windows and Linux · Local processing · Development preview · Capabilities vary by detected engine</p></div></footer>; }
+function Footer({ home = false }: { home?: boolean }) { return <footer className={`${home ? 'citrus-site-footer ' : ''}border-t border-line bg-surface`}><div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-7 px-5 py-8 sm:px-8 md:grid-cols-[1fr_auto] md:items-center lg:px-12"><Link to="home" className="inline-flex min-h-11 items-center gap-2.5"><Mark/><span className="font-display text-xl tracking-tight">santra<span className="text-orange">.</span></span></Link><div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Link to="tools" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Tools</Link><Link to="usecase" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Use cases</Link><Link to="guides" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Guides</Link><Link to="pricing" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Pricing</Link><Link to="install" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Install</Link></div><p className="m-0 text-xs text-muted md:col-span-2">Windows and Linux · Local processing · Development preview · Capabilities vary by detected engine</p></div></footer>; }
 function PageIntro({ eyebrow, title, italic, text, children }: { eyebrow: string; title: string; italic?: string; text: string; children?: ReactNode }) { return <div className="page-intro"><Badge><span className="size-1.5 rounded-full bg-orange"/>{eyebrow}</Badge><h1>{title}{italic && <> <em>{italic}</em></>}</h1><p>{text}</p>{children}</div>; }
 function CTA({ label = 'Find your download' }: { label?: string }) { return <Link to="install" className="site-cta inline-flex min-h-12 flex-wrap items-center gap-2 rounded-full bg-action px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-action-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action">{label}<ArrowRight size={16}/></Link>; }
 
@@ -54,12 +58,12 @@ function UseCasePage() {
   return <main className="usecase-page mx-auto max-w-[1280px] px-5 pb-20 pt-14 sm:px-8 lg:px-12 lg:pb-28 lg:pt-20">
     <PageIntro eyebrow="MADE FOR THE MOMENT BETWEEN FILES" title="From “where did it go?”" italic="to done." text="Everyday file work has a way of breaking your rhythm. Santra brings a few common next steps close, then lets you carry on."/>
     <div className="usecase-stories">
-      {cases.map(({number,title,copy,icon:Icon,tags}) => <Link key={number} to="tools" className="usecase-story" aria-label={`Explore tools for ${title}`}>
-        <span className="usecase-number">{number} / EVERYDAY WORK</span>
+      {usecases.map((usecase, index) => { const Icon = caseIcons[usecase.family]; return <a key={usecase.slug} href={`/usecase/${usecase.slug}`} className="usecase-story">
+        <span className="usecase-number">{String(index + 1).padStart(2, '0')} / EVERYDAY WORK</span>
         <span className="usecase-icon"><Icon size={21}/></span>
-        <div className="usecase-story-copy"><h2>{title}</h2><p>{copy}</p><div className="usecase-tags">{tags.map(tag => <span key={tag}>{tag}</span>)}</div></div>
-        <span className="usecase-story-action">See the tools <ArrowUpRight size={17}/></span>
-      </Link>)}
+        <div className="usecase-story-copy"><h2>{usecase.title}</h2><p>{usecase.description}</p><div className="usecase-tags"><span>{usecase.operation}</span><span>Local processing</span></div></div>
+        <span className="usecase-story-action">See the workflow <ArrowUpRight size={17}/></span>
+      </a>; })}
     </div>
     <section className="usecase-shortcut"><div><p className="tools-kicker"><span/> THE WORKSPACE GESTURE</p><h2>One small gesture.<br/><em>Right in the flow.</em></h2></div><div><p>Inside the desktop workspace, the action wheel brings forward conversion, tools, and file actions. An accessible picker offers another path; global shortcuts are still in development.</p><div className="usecase-shortcuts">{[['⇧','Convert'],['⌥','Tools'],['⌃','File actions']].map(([key,label]) => <span key={label}><kbd>{key}</kbd>{label}</span>)}</div></div></section>
     <p className="usecase-foot"><CircleHelp size={16}/> Santra is a desktop preview. Optional media and document workflows depend on locally detected engines.</p>
@@ -79,7 +83,7 @@ function InstallPage() {
   const [packageType, setPackageType] = useState<'deb' | 'AppImage'>('deb');
   const isWindows = platform === 'windows';
   const file = isWindows ? 'santra.exe' : packageType === 'deb' ? 'santra.deb' : 'santra.AppImage';
-  const releaseBase = (import.meta.env.VITE_SANTRA_RELEASE_BASE_URL ?? 'https://github.com/SinghAman21/santra/releases/latest/download').replace(/\/$/, '');
+  const releaseBase = (import.meta.env.VITE_SANTRA_RELEASE_BASE_URL ?? 'https://github.com/SinghAman21/santara/releases/latest/download').replace(/\/$/, '');
   const downloadUrl = import.meta.env.DEV ? `/downloads/${file}` : `${releaseBase}/${file}`;
   const packageName = isWindows ? 'Windows installer' : packageType === 'deb' ? 'Debian package' : 'AppImage';
 
@@ -144,8 +148,12 @@ function InstallPage() {
 }
 
 export function App() {
- const [route, setRoute] = useState<Route>(() => routeFromPath(window.location.pathname));
- useEffect(() => { const onPop = () => setRoute(routeFromPath(window.location.pathname)); window.addEventListener('popstate', onPop); return () => window.removeEventListener('popstate', onPop); }, []);
- useEffect(() => { document.title = routeTitle[route]; }, [route]);
- return <div className="min-h-screen bg-paper text-ink"><Header route={route}/>{route==='home'?<LandingPage/>:route==='tools'?<ToolsPage onInstall={() => navigate(paths.install)}/>:route==='usecase'?<UseCasePage/>:route==='pricing'?<PricingPage/>:<InstallPage/>}<Footer home={route === 'home'}/></div>;
+ const [pathname, setPathname] = useState(() => window.location.pathname);
+ const route = routeFromPath(pathname);
+ const clean = pathname.replace(/\/$/, '') || '/';
+ const guide = guides.find(item => clean === `/guides/${item.slug}`);
+ const usecase = usecases.find(item => clean === `/usecase/${item.slug}`);
+ useEffect(() => { const onPop = () => setPathname(window.location.pathname); window.addEventListener('popstate', onPop); return () => window.removeEventListener('popstate', onPop); }, []);
+ useEffect(() => { applyPageMeta(pathname); }, [pathname]);
+ return <div className="min-h-screen bg-paper text-ink"><Header route={route}/>{route==='home'?<LandingPage/>:route==='tools'?<ToolsPage onInstall={() => navigate(paths.install)}/>:route==='usecase'?<UseCasePage/>:route==='guides'?<GuideIndex/>:guide?<GuideArticle guide={guide}/>:usecase?<UsecaseArticle usecase={usecase}/>:route==='pricing'?<PricingPage/>:route==='install'?<InstallPage/>:<main className="mx-auto max-w-[1000px] px-6 py-20"><h1 className="font-display text-5xl">This page went missing.</h1><p>Find your next file workflow in the <a href="/guides">practical guides</a>, or <a href="/">head home</a>.</p></main>}<Footer home={route === 'home'}/></div>;
 }

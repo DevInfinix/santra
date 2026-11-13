@@ -105,12 +105,24 @@ function ArchiveMotion(): ReactNode {
   return <><rect x="75" y="86" width="210" height="136" rx="11" className="motion-archive-box"/><path d="M75 110h210" className="motion-archive-seam"/><rect x="167" y="108" width="26" height="30" rx="3" className="motion-archive-zip"/><g className="motion-unpacked-files"><rect x="105" y="54" width="62" height="78" rx="6" className="motion-paper"/><rect x="150" y="31" width="62" height="78" rx="6" className="motion-paper"/><rect x="194" y="56" width="62" height="78" rx="6" className="motion-paper"/></g><path d="M75 88 100 62h159l26 26" className="motion-archive-lid"/><text x="114" y="257">SAFE DESTINATION</text></>;
 }
 
+function SpreadsheetMotion({ label }: { label: string }): ReactNode {
+  return <>
+    {[0, 1].map(index => <g key={index} transform={`translate(${index * 145} 0)`}>
+      <rect x="32" y="65" width="130" height="160" rx="8" className="motion-paper"/>
+      <path d="M44 100h106M44 128h106M44 156h106M44 184h106M77 100v112M114 100v112" className="motion-archive-seam"/>
+      <text x="45" y="87">{label === 'Split worksheets' ? `SHEET ${index + 1}` : index ? 'CLEAN COPY' : 'ORIGINAL'}</text>
+    </g>)}
+    <text x="80" y="263">{label === 'Split worksheets' ? 'ONE FILE PER SHEET' : 'SUPPORTED TAGS REMOVED'}</text>
+  </>;
+}
+
 export function ToolMotion({ family, operation }: { family: Family; operation: WheelOption }) {
   const key = `${family.id}-${operation.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   let scene: ReactNode;
   if (family.id === 'images') scene = <ImageMotion label={operation.label}/>;
   else if (family.id === 'video') scene = <VideoMotion label={operation.label}/>;
   else if (family.id === 'audio') scene = <AudioMotion label={operation.label}/>;
+  else if (family.id === 'spreadsheets') scene = <SpreadsheetMotion label={operation.label}/>;
   else if (family.id === 'pdf') scene = <PdfMotion label={operation.label}/>;
   else scene = <ArchiveMotion/>;
   return <div className={`tool-motion motion-${key}`}>

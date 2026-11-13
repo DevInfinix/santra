@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://santra.singhaman.me/sitemap.xml

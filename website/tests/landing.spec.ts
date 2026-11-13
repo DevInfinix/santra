@@ -23,7 +23,7 @@ test('seven valid sample categories are visible; their relevant actions and unav
   await select(page,'captions.srt');await expect(wheel(page).getByRole('button')).toHaveText(['SRT','VTT','TXT']);
   await select(page,'creative-brief.pdf');await page.locator('.wheel-tabs').getByRole('button',{name:'Tools',exact:true}).click();await expect(wheel(page).getByRole('button')).toHaveText(['Compress','Extract pages','Merge PDFs','Rotate pages','Render page']);await expect(page.locator('.unavailable-action')).toContainText('qpdf or Poppler');await expect(page.locator('.output-card')).toHaveCount(0);
   await select(page,'field-notes.md');await expect(wheel(page).getByRole('button',{name:'DOCX',exact:true})).toBeVisible();await expect(wheel(page).getByRole('button',{name:'Resize',exact:true})).toHaveCount(0);await expect(page.locator('.unavailable-action')).toContainText('Pandoc');
-  await select(page,'harvest.csv');await expect(page.getByRole('status')).toContainText('disabled');await page.locator('.wheel-tabs').getByRole('button',{name:'Convert',exact:true}).click();await expect(wheel(page).getByRole('button')).toHaveCount(0);await expect(page.locator('.no-actions')).toContainText('No conversion route');
+  await select(page,'harvest.csv');await expect(page.getByRole('status')).toContainText('Santra desktop');await page.locator('.wheel-tabs').getByRole('button',{name:'Convert',exact:true}).click();await expect(wheel(page).getByRole('button')).toHaveText(['XLSX','XLS','ODS','CSV','TSV','PDF']);await expect(page.locator('.unavailable-action')).toContainText('Santra desktop');
 });
 test('all six existing image operations produce genuine decoded outputs and leave the source on the desktop',async({page})=>{
   await desktop(page);
