@@ -245,6 +245,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if !handle_wheel_request(app, &args) {
                 if let Some(window) = app.get_webview_window("workspace") {
+                    let _ = window.unminimize();
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -331,6 +332,7 @@ fn main() {
                                     eprintln!("Santra wheel placement unavailable: {error}");
                                 }
                             }
+                            let _ = window.unminimize();
                             let _ = window.show();
                             let _ = window.set_focus();
                         }

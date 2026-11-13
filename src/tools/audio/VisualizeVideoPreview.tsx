@@ -49,8 +49,11 @@ export default function VisualizeVideoPreview({ path, style, duration, options =
   if(previousChunk===chunk)globalTime.current=previousChunk*CHUNK_SECONDS+video.current.currentTime;
  }
  previousVideoKey.current=key;
- const segmentReady = STYLES.every(mode=>cache.current.has(`${chunk}:${mode}`));
- const source = segmentReady ? cache.current.get(key)?.url : undefined;
+ // Show the selected style as soon as it is ready. Other styles are still
+ // prepared in the background for instant switching, but must not blank the
+ // preview while they render.
+ const segmentReady = cache.current.has(key);
+ const source = cache.current.get(key)?.url;
  const total = Number.isFinite(duration) && duration > 0 ? duration : CHUNK_SECONDS;
  const hasNext = duration <= 0 || (chunk + 1) * CHUNK_SECONDS < duration;
 
@@ -85,7 +88,9 @@ export default function VisualizeVideoPreview({ path, style, duration, options =
    pending.current.add(cacheKey);
    tasks.current.push({key:cacheKey,index,mode,generation,path,optionKey});
   }
-  tasks.current.sort((a,b)=>a.index-b.index||Number(b.mode===selectedStyle)-Number(a.mode===selectedStyle));
+  // Keep playback moving: render the selected style for the current and next
+  // chunks before spending time on alternate styles.
+  tasks.current.sort((a,b)=>Number(b.mode===selectedStyle)-Number(a.mode===selectedStyle)||a.index-b.index);
   pump.current=()=>{
    while(running.current<2&&tasks.current.length){
     const task=tasks.current.shift()!;
@@ -97,10 +102,10 @@ export default function VisualizeVideoPreview({ path, style, duration, options =
      const entry=playable(result.url);
      if(task.index<chunkRef.current||task.index>chunkRef.current+1){dispose(entry);return;}
      cache.current.set(task.key,entry);
-     if(STYLES.every(mode=>cache.current.has(`${chunkRef.current}:${mode}`)))setError('');
+     if(task.mode===selectedStyle)setError('');
      refresh(value=>value+1);
     }).catch(reason=>{
-     if(epoch.current===task.generation&&task.index===chunkRef.current)setError(reason instanceof Error?reason.message:String(reason));
+     if(epoch.current===task.generation&&task.index===chunkRef.current&&task.mode===selectedStyle)setError(reason instanceof Error?reason.message:String(reason));
     }).finally(()=>{
      running.current--;
      if(epoch.current===task.generation)pending.current.delete(task.key);
@@ -122,7 +127,11 @@ export default function VisualizeVideoPreview({ path, style, duration, options =
  function startPlayback() {
   const element = video.current;
   if (!element || !source || readyKey.current !== key) return;
-  void element.play().catch(() => { desiredPlaying.current = false; setPlaying(false); setError('The visualization video could not be played.'); });
+  void element.play().catch(reason => {
+   desiredPlaying.current = false; setPlaying(false);
+   const detail = reason instanceof Error ? reason.message : String(reason);
+   setError(`The visualization preview could not be played: ${detail}`);
+  });
  }
  return <div className="visualize-video-preview" data-preview-style={selectedStyle} data-chunk-start={chunk * CHUNK_SECONDS} data-cache-size={cache.current.size} data-segment-ready={segmentReady}>
   <video key={key} ref={video} src={source} playsInline preload="auto" aria-label="Live waveform video preview" style={{aspectRatio:'1280 / 720'}} onLoadedMetadata={event => {
@@ -144,7 +153,12 @@ export default function VisualizeVideoPreview({ path, style, duration, options =
    if (duration > 0 && (chunk + 1) * CHUNK_SECONDS >= duration) { desiredPlaying.current = false; setPlaying(false); seek(duration); return; }
    const next = (chunk + 1) * CHUNK_SECONDS;
    globalTime.current = next; setTime(next); setChunk(chunk + 1);
-  }} onError={() => { if (source) setError('The visualization video could not be played.'); }}/>
+  }} onError={event => {
+   if (!source) return;
+   const mediaError = event.currentTarget.error;
+   const detail = mediaError ? `Media error ${mediaError.code}: ${mediaError.message || 'unsupported preview'}` : 'The browser rejected the preview media.';
+   setError(`The visualization preview could not be loaded: ${detail}`);
+  }}/>
   {!source && !error && <p role="status">{playing ? 'Buffering the next visualization segment…' : 'Preparing visualization previews…'}</p>}
   <Slider aria-label="Visualization preview timeline" min={0} max={total} step={.01} value={[time]} onValueChange={([next]) => seek(next)}/>
   <div className="audio-waveform-transport"><Button variant="outline" size="icon" aria-label={playing?'Pause visualization':'Play visualization'} onClick={() => {

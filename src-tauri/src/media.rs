@@ -608,8 +608,8 @@ impl MediaBackend {
             || !has(&self.filters, "color")
             || !has(&self.filters, "overlay")
             || !has(&self.filters, "format")
-            || !has(&self.encoders, "libx264")
-            || !has(&self.encoders, "aac")
+            || !has(&self.encoders, "libvpx")
+            || !has(&self.encoders, "libopus")
         {
             return Err("Audio visualization preview is unavailable".into());
         }
@@ -669,17 +669,20 @@ impl MediaBackend {
                 &graph,
                 "-map",
                 "[preview]",
-                "-map", "0:a:0", "-t", &duration.to_string(), "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-movflags", "+faststart", "-f", "mp4",
+                "-map", "0:a:0", "-t", &duration.to_string(), "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8", "-crf", "32", "-b:v", "0", "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "96k", "-shortest", "-f", "webm",
             ])
             .arg(output);
         captured(command, Duration::from_secs(60), cancelled).map_err(safe_media_error)?;
-        let mut bytes = Vec::new();
+        // Validate the generated container without loading the whole chunk into
+        // memory here; the Tauri bridge reads it once to produce the preview URL.
+        let metadata = fs::metadata(output)
+            .map_err(|_| "Audio visualization preview was not created")?;
+        let mut header = [0; 8];
         fs::File::open(output)
-            .map_err(|_| "Audio visualization preview was not created")?
-            .take(32_000_001)
-            .read_to_end(&mut bytes)
+            .map_err(|_| "Cannot read audio visualization preview")?
+            .read_exact(&mut header)
             .map_err(|_| "Cannot read audio visualization preview")?;
-        if bytes.len() > 32_000_000 || bytes.get(4..8) != Some(b"ftyp") {
+        if metadata.len() > 32_000_000 || header[..4] != [0x1a, 0x45, 0xdf, 0xa3] {
             return Err("Invalid audio visualization preview".into());
         }
         Ok((width, height, start, duration, total_duration))
@@ -1829,8 +1832,10 @@ mod tests {
             && has(&backend.filters, "overlay")
             && has(&backend.filters, "format")
             && has(&backend.encoders, "png")
+            && has(&backend.encoders, "libvpx")
+            && has(&backend.encoders, "libopus")
         {
-            let preview = directory.join("visualize-preview.mp4");
+            let preview = directory.join("visualize-preview.webm");
             let dimensions = backend
                 .visualize_preview(
                     &input,
@@ -1852,7 +1857,7 @@ mod tests {
             assert!(details["duration"].as_f64().is_some_and(|duration| duration > 0.0 && duration <= 10.1));
             let (_, audio) = backend.merge_streams(&preview, &||false).unwrap();
             assert!(audio.is_some());
-            let points = directory.join("points-chunk.mp4");
+            let points = directory.join("points-chunk.webm");
             let chunk = backend.visualize_preview(&input, &points,
                 &json!({"start":"0.1","style":"point","width":"320","height":"180"}), || false).unwrap();
             assert_eq!(chunk.2, 0.1);

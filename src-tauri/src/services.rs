@@ -2453,7 +2453,7 @@ pub async fn audio_visualize_preview(
         .app_cache_dir()
         .map_err(|error| error.to_string())?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let output = directory.join(format!("santra-audio-visualize-{}.mp4", Uuid::new_v4()));
+    let output = directory.join(format!("santra-audio-visualize-{}.webm", Uuid::new_v4()));
     let result = tauri::async_runtime::spawn_blocking(move || {
         let rendered = backend.visualize_preview(&source, &output, &options, || false);
         let result = rendered.and_then(|(width, height, start, duration, total_duration)| {
@@ -2463,11 +2463,11 @@ pub async fn audio_visualize_preview(
                 .take(32_000_001)
                 .read_to_end(&mut bytes)
                 .map_err(|_| "Cannot read visualization preview")?;
-            if bytes.len() > 32_000_000 || bytes.get(4..8) != Some(b"ftyp") {
+            if bytes.len() > 32_000_000 || !bytes.starts_with(&[0x1a, 0x45, 0xdf, 0xa3]) {
                 return Err("Invalid audio visualization preview".into());
             }
             Ok(serde_json::json!({
-                "url": format!("data:video/mp4;base64,{}", STANDARD.encode(bytes)),
+                "url": format!("data:video/webm;base64,{}", STANDARD.encode(bytes)),
                 "width": width,
                 "height": height,
                 "start": start,
