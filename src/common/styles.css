@@ -16,3 +16,16 @@
 .nav-item.active,.nav-item:hover,.settings-tabs button.active,.file-row.selected,.local-note,.privacy-card,.tool-icon,.local-pill,.soft-badge,.format-chips span,.category-tabs button.active,.segmented button.active,.queue-heading,.file-icon { background: #ffffff; }
 .nav-item.active,.settings-tabs button.active { color: #ff5a00; box-shadow: inset 2px 0 #ff5a00; }
 .local-note,.privacy-card { border: 1px solid var(--line); }
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/Outfit-Light.ttf") format("truetype");
+}
+
+body, body * {
+  font-family: "Outfit", sans-serif !important;
+  font-weight: 300 !important;
+}

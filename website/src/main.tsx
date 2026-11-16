@@ -4,3 +4,4 @@ import { App } from './site';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+window.addEventListener('load', () => document.documentElement.classList.add('app-ready'), { once: true });

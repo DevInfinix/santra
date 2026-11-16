@@ -6,7 +6,7 @@
   --c-line: #deded1;
   background: var(--c-cream);
   color: var(--c-ink);
-  font-family: "Avenir Next","Segoe UI",sans-serif;
+  font-family: "Outfit","Segoe UI",sans-serif;
 }
 .citrus-landing button,.citrus-landing a {
   touch-action: manipulation;
