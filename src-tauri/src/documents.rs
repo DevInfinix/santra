@@ -8,6 +8,11 @@ use std::{
 };
 
 use serde_json::{json, Value};
+use std::io::{self, Cursor};
+
+const MAX_DOCX_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_DOCX_EXPANDED_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_DOCX_ENTRIES: usize = 2_000;
 
 #[derive(Clone, Default)]
 pub struct DocumentBackend {
@@ -186,16 +191,29 @@ impl DocumentBackend {
             "readers": self.readers, "writers": self.writers })
     }
 
+    pub fn dxpdf_info(&self) -> Value {
+        json!({ "available": true, "version": "0.8.1", "bundled": true })
+    }
+
     pub fn supports(&self, input: &str, output: &str) -> bool {
-        self.path.is_some()
-            && self
-                .pairs
-                .iter()
-                .any(|(reader, writer)| reader == input && writer == output)
+        (input == "docx" && output == "pdf")
+            || (self.path.is_some()
+                && self
+                    .pairs
+                    .iter()
+                    .any(|(reader, writer)| reader == input && writer == output))
     }
 
     pub fn capabilities(&self) -> Vec<Value> {
-        INPUTS.iter().filter_map(|(input, _)| {
+        let mut capabilities = vec![json!({
+            "id": "document:convert:docx:pdf", "operation": "convert",
+            "label": "Convert DOCX to PDF", "category": "document",
+            "inputs": ["docx"], "outputs": ["pdf"], "backend": "dxpdf",
+            "available": true, "batch": true, "preservesMetadata": false,
+            "options": {},
+            "warning": "DOCX rendering depends on available fonts; unsupported Word features may differ from Microsoft Word."
+        })];
+        capabilities.extend(INPUTS.iter().filter_map(|(input, _)| {
             let outputs: Vec<&str> = self.pairs.iter().filter(|(reader, _)| reader == input)
                 .map(|(_, writer)| writer.as_str()).collect();
             if outputs.is_empty() { return None; }
@@ -203,7 +221,8 @@ impl DocumentBackend {
                 "inputs": [input], "outputs": outputs, "backend": "pandoc", "available": true,
                 "batch": true, "preservesMetadata": false, "options": {},
                 "warning": "Conversion may lose page layout, fonts, images and metadata; TXT retains text only." }))
-        }).collect()
+        }));
+        capabilities
     }
 
     pub fn run(
@@ -222,7 +241,7 @@ impl DocumentBackend {
             return Err("Document route is unavailable".into());
         }
         let info = fs::metadata(input).map_err(|error| error.to_string())?;
-        if !info.is_file() || info.len() > 16 * 1024 * 1024 {
+        if !info.is_file() || info.len() > MAX_DOCX_BYTES {
             return Err("Document exceeds 16 MiB".into());
         }
         let mut signature = [0_u8; 8];
@@ -234,6 +253,47 @@ impl DocumentBackend {
             && !signature[..count].starts_with(b"PK\x03\x04")
         {
             return Err("Document signature does not match its extension".into());
+        }
+        if extension == "docx" && format == "pdf" {
+            if cancelled() {
+                return Err("Cancelled".into());
+            }
+            let bytes = fs::read(input).map_err(|error| error.to_string())?;
+            let mut archive = zip::ZipArchive::new(Cursor::new(&bytes))
+                .map_err(|_| "DOCX package is invalid".to_string())?;
+            if archive.len() > MAX_DOCX_ENTRIES {
+                return Err("DOCX package contains too many entries".into());
+            }
+            let mut expanded = 0_u64;
+            let mut has_document = false;
+            for index in 0..archive.len() {
+                let mut entry = archive
+                    .by_index(index)
+                    .map_err(|_| "DOCX package is invalid".to_string())?;
+                if entry.size() > MAX_DOCX_EXPANDED_BYTES.saturating_sub(expanded) {
+                    return Err("DOCX package expands beyond 128 MiB".into());
+                }
+                if entry.name() == "word/document.xml" {
+                    has_document = true;
+                }
+                let remaining = MAX_DOCX_EXPANDED_BYTES.saturating_sub(expanded);
+                let actual = io::copy(&mut entry.by_ref().take(remaining + 1), &mut io::sink())
+                    .map_err(|_| "DOCX package is invalid".to_string())?;
+                if actual > remaining {
+                    return Err("DOCX package expands beyond 128 MiB".into());
+                }
+                expanded = expanded.saturating_add(actual);
+            }
+            if !has_document {
+                return Err("DOCX package is missing its main document".into());
+            }
+            let pdf = dxpdf::convert(&bytes)
+                .map_err(|_| "DOCX could not be rendered to PDF".to_string())?;
+            if cancelled() {
+                return Err("Cancelled".into());
+            }
+            fs::write(output, pdf).map_err(|error| error.to_string())?;
+            return Ok(());
         }
         let reader = INPUTS
             .iter()

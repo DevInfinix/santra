@@ -4,6 +4,8 @@ Native drag startup: the host retains inspected files for the active drag genera
 
 Tauri migration note: `src-tauri/` owns native drops and Rust raster jobs with crop, resize, rotation, flip, adjustments, and generated background canvases. Detected ExifTool adds same-format JPEG metadata editing. The GNOME extension targets Tauri's single-instance wheel command; the Windows watcher is bundled by the Tauri NSIS config. The detailed design below includes previous-release behavior and future requirements. Metadata preservation across raster transforms, codec parity, and real global drags remain unverified or incomplete; see `TAURI_PARITY_MATRIX.md`.
 
+Document conversion note: the local capability registry includes bundled dxpdf for DOCX → PDF on Windows and Linux builds. Choosing PDF in the Shift wheel queues conversion directly, without opening a review window; output goes beside the source by default. It bounds the DOCX package size and does not execute document contents. PDF rendering can differ with fonts and unsupported Word features. PPT → PDF is not provided by dxpdf and remains unavailable until a separate engine is selected and verified.
+
 ## Product direction
 
 Santra should feel like a desktop wheel utility. A small Tauri desktop host owns the global wheel, local workers, settings, notifications, and native integrations. The workspace stays available for history, settings, queue, and accessibility fallback.

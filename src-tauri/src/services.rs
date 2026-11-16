@@ -366,6 +366,7 @@ impl AppState {
         ]);
         backends.extend(pdf.info());
         backends.insert("pandoc".into(), documents.info());
+        backends.insert("dxpdf".into(), documents.dxpdf_info());
         Ok(Snapshot {
             files: data.files.clone(),
             jobs: data.jobs.clone(),

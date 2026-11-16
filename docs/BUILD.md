@@ -7,7 +7,7 @@ Santra's sole desktop runtime on `tauri-rt` is Tauri 2. `npm run build` produces
 Install the Tauri build dependencies yourself:
 
 ```bash
-sudo apt update && sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf
+sudo apt update && sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf clang ninja-build libfontconfig1-dev libfreetype-dev
 ```
 
 For optional media, document, metadata, and headless checks, install the tools you intend to test:
