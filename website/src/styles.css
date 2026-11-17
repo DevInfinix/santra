@@ -313,6 +313,7 @@ a { color: inherit; text-decoration: none; }
 .pricing-features svg { color: #78966A; }
 .pricing-release-note { margin: 28px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .install-aside { align-self: center; }
+#download-panel { scroll-margin-top: 96px; }
 .install-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
 .install-step { min-width: 0; padding: 0 18px 0 0; border-right: 1px solid var(--line); }
 .install-step:last-child { border-right: 0; padding-right: 0; }
@@ -324,3 +325,25 @@ body, body * {
   font-family: "Outfit", sans-serif !important;
   font-weight: 300 !important;
 }
+
+.github-star-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 42px;
+  padding: 0 5px;
+  border-radius: 8px;
+  /*border: 1px solid var(--line);*/
+  /*background: var(--paper);*/
+  color: var(--ink);
+  transition: none;
+}
+.github-star-card:hover { background: transparent; }
+.github-star-card svg:first-child { width: 20px; height: 20px; stroke-width: 1.8; }
+.github-star-card svg:last-child { width: 20px; height: 20px; stroke-width: 1.7; }
+.github-star-card span { display: inline-block; min-width: 32px; color: var(--ink); font-size: 16px; font-weight: 600 !important; text-align: center; transition: transform .18s ease; }
+.github-star-card:hover span { transform: translateY(-1px); }
+.citrus-site-header .github-star-card,
+.citrus-site-header .github-star-card span,
+.citrus-site-header .github-star-card svg { color: #3d5b43 !important; opacity: 1 !important; }
+.citrus-site-header .github-star-card svg { stroke: #3d5b43 !important; }

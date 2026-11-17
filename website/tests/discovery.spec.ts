@@ -19,7 +19,7 @@ test('GitHub remains accessible in the header on desktop and mobile', async ({ p
     await page.goto('/tools');
     const github = page.locator('header').getByRole('link', { name: 'Santra on GitHub (opens in a new tab)' });
     await expect(github).toBeVisible();
-    await expect(github).toHaveAttribute('href', 'https://github.com/SinghAman21/santara');
+    await expect(github).toHaveAttribute('href', 'https://github.com/SinghAman21/santra');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
   }
 });

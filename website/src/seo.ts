@@ -4,7 +4,7 @@ import { usecases } from './content/usecases';
 export const SITE_ORIGIN = 'https://santra.singhaman.me';
 export type PageMeta = { path: string; title: string; description: string };
 export const sitePages: PageMeta[] = [
-  { path: '/', title: 'Santra — Offline file conversion for Windows & Linux', description: 'Convert, edit, and organize files locally with Santra for Windows and Linux. Explore image tools, spreadsheets, and engine-dependent media conversion.' },
+  { path: '/', title: 'Santra — One file. A whole world of possibilities.', description: 'Convert, edit, and organize files locally with Santra for Windows and Linux. Explore image tools, spreadsheets, and engine-dependent media conversion.' },
   { path: '/tools', title: 'Local file conversion & editing tools — Santra', description: 'Explore Santra’s image, spreadsheet, subtitle, archive, document, audio, and video tools, with supported formats and local engine requirements.' },
   { path: '/usecase', title: 'Everyday file workflows, without uploads — Santra', description: 'Prepare listing photos, trim video, hand off documents and spreadsheet data, or organize local files. Find a practical Santra workflow for each task.' },
   { path: '/guides', title: 'Practical offline file conversion guides — Santra', description: 'Step-by-step guides to converting spreadsheets and images, trimming video, handling subtitles, and extracting archives locally on Windows and Linux.' },

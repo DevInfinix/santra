@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LandingPage } from './landing/LandingPage';
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, CircleHelp, FileImage, FileText, FileVideo, Github, HardDriveDownload, Leaf, LockKeyhole, Menu, Monitor, Moon, PackageCheck, ShieldCheck, Sun, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, CircleHelp, FileImage, FileText, FileVideo, Github, HardDriveDownload, Leaf, LockKeyhole, Menu, Monitor, Moon, PackageCheck, ShieldCheck, Star, Sun, X } from 'lucide-react';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader } from './components/ui/card';
@@ -20,20 +20,28 @@ function routeFromPath(path: string): Route {
   if (usecases.some(usecase => clean === `/usecase/${usecase.slug}`)) return 'usecase-detail';
   return (Object.keys(paths) as BaseRoute[]).find(key => paths[key] === clean) ?? 'notfound';
 }
-function navigate(path: string) {
-  if (path === window.location.pathname) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-  window.history.pushState({}, '', path);
+function navigate(path: string, hash = '') {
+  if (path === window.location.pathname) {
+    if (hash) { window.history.replaceState({}, '', `${path}${hash}`); requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  window.history.pushState({}, '', `${path}${hash}`);
   window.dispatchEvent(new PopStateEvent('popstate'));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (hash) setTimeout(() => document.querySelector(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function Link({ to, className = '', children, onClick, ...props }: { to: BaseRoute; className?: string; children: ReactNode; onClick?: () => void } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
-  return <a href={paths[to]} className={className} onClick={(event) => { onClick?.(); if (!event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0 && event.currentTarget.target !== '_blank') { event.preventDefault(); navigate(paths[to]); } }} {...props}>{children}</a>;
+function Link({ to, anchor, className = '', children, onClick, ...props }: { to: BaseRoute; anchor?: string; className?: string; children: ReactNode; onClick?: () => void } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const destination = `${paths[to]}${anchor ?? ''}`;
+  return <a href={destination} className={className} onClick={(event) => { onClick?.(); if (!event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0 && event.currentTarget.target !== '_blank') { event.preventDefault(); navigate(paths[to], anchor); } }} {...props}>{children}</a>;
 }
 function Mark() { return <img className="site-mark" src="/santra.png" alt="" aria-hidden="true"/>; }
 function Header({ route }: { route: Route }) {
-  const [menu, setMenu] = useState(false); const [dark, setDark] = useState(() => localStorage.getItem('santra-theme') === 'dark');
+  const [menu, setMenu] = useState(false); const [dark, setDark] = useState(() => localStorage.getItem('santra-theme') === 'dark'); const [stars, setStars] = useState<number | null>(() => { const cached = localStorage.getItem('santra-github-stars'); return cached ? Number(cached) : null; });
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); localStorage.setItem('santra-theme', dark ? 'dark' : 'light'); }, [dark]);
   useEffect(() => { setMenu(false); }, [route]);
+  useEffect(() => { let active = true; fetch('https://api.github.com/repos/SinghAman21/santra', { headers: { Accept: 'application/vnd.github+json' } }).then(response => response.ok ? response.json() as Promise<{ stargazers_count?: number }> : Promise.reject(new Error('GitHub stars unavailable'))).then(data => { if (!active || typeof data.stargazers_count !== 'number') return; setStars(data.stargazers_count); localStorage.setItem('santra-github-stars', String(data.stargazers_count)); }).catch(() => {}); return () => { active = false; }; }, []);
+  const starLabel = stars === null ? '—' : new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(stars);
   const links: Array<[BaseRoute, string]> = [['tools', 'Tools'], ['usecase', 'Use cases'], ['guides', 'Guides'], ['pricing', 'Pricing']];
   return <header className={`${route === 'home' ? 'citrus-site-header ' : ''}site-header sticky top-0 z-[var(--z-dropdown)] border-b border-line/80 bg-paper/90 backdrop-blur-xl`}>
     <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-3 px-5 py-3.5 sm:px-8 lg:px-12">
@@ -42,9 +50,9 @@ function Header({ route }: { route: Route }) {
         {links.map(([id, label]) => <Link key={id} to={id} aria-current={route === id ? 'page' : undefined} className={`min-h-11 rounded-full px-4 py-3 text-sm transition hover:bg-surface-soft hover:text-action focus-visible:outline-2 focus-visible:outline-action ${route === id ? 'font-semibold text-action' : 'text-muted'}`}>{label}</Link>)}
       </nav>
       <div className="flex flex-wrap items-center gap-2">
-        <a href="https://github.com/SinghAman21/santara" target="_blank" rel="noopener noreferrer" aria-label="Santra on GitHub (opens in a new tab)" className="inline-flex min-h-11 items-center gap-2 rounded-full px-2 text-sm text-muted transition hover:text-action focus-visible:outline-2 focus-visible:outline-action"><Github size={18} aria-hidden="true"/><span className="hidden sm:inline">GitHub</span></a>
-        <Button hidden={route === 'home'} variant="ghost" size="icon" aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setDark(!dark)}>{dark ? <Sun size={18}/> : <Moon size={18}/>}</Button>
-        <Link to="install" className="site-cta inline-flex min-h-11 items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-action-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action">Get Santra <ArrowDown size={15}/></Link>
+        <a href="https://github.com/SinghAman21/santra" target="_blank" rel="noopener noreferrer" aria-label={`Santra has ${starLabel} GitHub stars`} className="github-star-card focus-visible:outline-2 focus-visible:outline-action"><Github aria-hidden="true"/><span>{starLabel}</span><Star aria-hidden="true"/></a>
+        <Button variant="ghost" size="icon" aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setDark(!dark)}>{dark ? <Sun size={18}/> : <Moon size={18}/>}</Button>
+        <Link to="install" anchor="#download-panel" className="site-cta inline-flex min-h-11 items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-action-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action">Get Santra <ArrowDown size={15}/></Link>
         <Button variant="outline" size="icon" className="md:hidden" aria-label={menu ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>{menu ? <X size={18}/> : <Menu size={18}/>}</Button>
       </div>
     </div>
@@ -52,7 +60,7 @@ function Header({ route }: { route: Route }) {
 }
 function Footer({ home = false }: { home?: boolean }) { return <footer className={`${home ? 'citrus-site-footer ' : ''}border-t border-line bg-surface`}><div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-7 px-5 py-8 sm:px-8 md:grid-cols-[1fr_auto] md:items-center lg:px-12"><Link to="home" className="inline-flex min-h-11 items-center gap-2.5"><Mark/><span className="font-display text-xl tracking-tight">santra<span className="text-orange">.</span></span></Link><div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Link to="tools" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Tools</Link><Link to="usecase" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Use cases</Link><Link to="guides" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Guides</Link><Link to="pricing" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Pricing</Link><Link to="install" className="min-h-11 rounded-full px-3 py-3 hover:text-action">Install</Link></div><p className="m-0 text-xs text-muted md:col-span-2">Windows and Linux · Local processing · Development preview · Capabilities vary by detected engine</p></div></footer>; }
 function PageIntro({ eyebrow, title, italic, text, children }: { eyebrow: string; title: string; italic?: string; text: string; children?: ReactNode }) { return <div className="page-intro"><Badge><span className="size-1.5 rounded-full bg-orange"/>{eyebrow}</Badge><h1>{title}{italic && <> <em>{italic}</em></>}</h1><p>{text}</p>{children}</div>; }
-function CTA({ label = 'Find your download' }: { label?: string }) { return <Link to="install" className="site-cta inline-flex min-h-12 flex-wrap items-center gap-2 rounded-full bg-action px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-action-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action">{label}<ArrowRight size={16}/></Link>; }
+function CTA({ label = 'Find your download' }: { label?: string }) { return <Link to="install" anchor="#download-panel" className="site-cta inline-flex min-h-12 flex-wrap items-center gap-2 rounded-full bg-action px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-action-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action">{label}<ArrowRight size={16}/></Link>; }
 
 function UseCasePage() {
   return <main className="usecase-page mx-auto max-w-[1280px] px-5 pb-20 pt-14 sm:px-8 lg:px-12 lg:pb-28 lg:pt-20">
@@ -83,14 +91,14 @@ function InstallPage() {
   const [packageType, setPackageType] = useState<'deb' | 'AppImage'>('deb');
   const isWindows = platform === 'windows';
   const file = isWindows ? 'santra.exe' : packageType === 'deb' ? 'santra.deb' : 'santra.AppImage';
-  const releaseBase = (import.meta.env.VITE_SANTRA_RELEASE_BASE_URL ?? 'https://github.com/SinghAman21/santara/releases/latest/download').replace(/\/$/, '');
+  const releaseBase = (import.meta.env.VITE_SANTRA_RELEASE_BASE_URL ?? 'https://github.com/SinghAman21/santra/releases/latest/download').replace(/\/$/, '');
   const downloadUrl = import.meta.env.DEV ? `/downloads/${file}` : `${releaseBase}/${file}`;
   const packageName = isWindows ? 'Windows installer' : packageType === 'deb' ? 'Debian package' : 'AppImage';
 
-  return <main className="mx-auto max-w-[1180px] px-5 pb-20 pt-14 sm:px-8 lg:px-12 lg:pb-28 lg:pt-20">
+  return <main className="mx-auto max-w-[1180px] px-5 pb-12 pt-8 sm:px-8 lg:px-12 lg:pb-16 lg:pt-12">
     <PageIntro eyebrow="A DESKTOP APP, READY TO MEET YOUR FILES" title="Install once." italic="Keep it local." text="Choose the Windows or Linux preview. Santra runs on your computer. A limited, local browser image workspace is available on the home page."/>
-    <div className="mt-11 grid gap-7 lg:grid-cols-[.66fr_1.34fr]">
-      <aside className="install-aside rounded-[28px] border border-line bg-surface p-6 sm:p-8">
+    <div className="mt-6 grid gap-5 lg:grid-cols-[.66fr_1.34fr]">
+      <aside className="install-aside rounded-[28px] border border-line bg-surface p-5 sm:p-6">
         <span className="grid size-12 place-items-center rounded-2xl bg-leaf/10 text-leaf"><ShieldCheck size={22}/></span>
         <h2 className="mt-5 font-display text-3xl">Your computer.<br/>Your files.</h2>
         <p className="text-sm leading-7 text-muted">Santra processes files locally. No account, conversion upload, or cloud queue is part of this preview.</p>
@@ -108,7 +116,7 @@ function InstallPage() {
             </button>
           )}
         </div>
-        <div id="download-panel" className="p-5 sm:p-8">
+        <div id="download-panel" className="p-4 sm:p-6">
           {!isWindows && <div className="flex flex-wrap gap-2" role="group" aria-label="Choose Linux package">
             {(['deb', 'AppImage'] as const).map(type =>
               <button key={type} onClick={() => setPackageType(type)} aria-pressed={packageType === type} className={`min-h-11 rounded-full border px-4 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-action ${packageType === type ? 'border-orange/45 bg-orange-wash text-action' : 'border-line bg-surface text-muted hover:bg-surface-soft'}`}>
