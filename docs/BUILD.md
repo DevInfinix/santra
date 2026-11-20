@@ -7,7 +7,7 @@ Santra's sole desktop runtime on `tauri-rt` is Tauri 2. `npm run build` produces
 Install the Tauri build dependencies yourself:
 
 ```bash
-sudo apt update && sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf clang ninja-build libfontconfig1-dev libfreetype-dev
+sudo apt update && sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf
 ```
 
 For optional media, document, metadata, and headless checks, install the tools you intend to test:
@@ -16,7 +16,7 @@ For optional media, document, metadata, and headless checks, install the tools y
 sudo apt install ffmpeg poppler-utils qpdf pandoc libreoffice libimage-exiftool-perl xvfb xauth
 ```
 
-These optional tools are not downloaded or bundled by Santra. Run `npm ci`, `npm run test`, `npm run build`, then `npm run dist:linux`. The `.deb` relies on system GTK/WebKitGTK packages. The AppImage requests bundled media framework components; verify its actual portability and licenses on a clean Ubuntu LTS system.
+These optional tools are not downloaded or bundled by Santra. LibreOffice or Apache OpenOffice enables DOCX/PPT/PPTX → PDF on Linux; LibreOffice also works on Windows. On Windows, installed Word/WPS Writer handles DOCX and PowerPoint handles PPT/PPTX. FreeOffice is detected but cannot be used for silent PDF conversion. Santra detects local engines at startup and does not use online conversion. Run `npm ci`, `npm run test`, `npm run build`, then `npm run dist:linux`. The `.deb` relies on system GTK/WebKitGTK packages. The AppImage requests bundled media framework components; verify its actual portability and licenses on a clean Ubuntu LTS system.
 
 ## Windows 10/11 x64
 

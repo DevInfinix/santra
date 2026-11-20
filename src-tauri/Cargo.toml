@@ -26,7 +26,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 tar = "0.4"
 flate2 = "1"
 rustix = { version = "1", features = ["fs"] }
-dxpdf = "=0.8.1"
 
 [features]
 default = []

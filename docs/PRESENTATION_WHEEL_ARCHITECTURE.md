@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Presentation conversion is a proposal; LibreOffice is probed, but office conversion is currently disabled pending safe subprocess isolation. No PPT/PPTX conversion route should be shown until the chosen backend, isolation policy, and each route have passed fixture tests. PDF-to-PPTX reconstruction belongs to the PDF architecture and must be labeled fidelity-limited.
+PPT/PPTX-to-PDF is enabled when LibreOffice or OpenOffice is detected, or on Windows when Microsoft PowerPoint is detected. These engines use isolated temporary profiles or automation with macros/link updates disabled. FreeOffice and WPS Presentation are detected but have no verified quiet export route. PDF-to-PPTX reconstruction belongs to the PDF architecture and must be labeled fidelity-limited.
 
 Candidate inputs are PPT and PPTX. Candidate outputs are PDF and per-slide PNG/JPG. PPT is legacy and must be enabled only when a verified local reader is detected. Never claim a PDF-to-PPTX result is equivalent to the original deck.
 
@@ -46,7 +46,7 @@ Each route records accepted formats and signatures, backend/version, output, sli
 
 ## Implementation sequence
 
-1. Define isolated local conversion execution and per-filter detection before enabling LibreOffice.
+1. Verify DOCX/PPTX exports on Windows and Linux fixtures, including Word/PowerPoint COM behavior.
 2. Implement PPTX-to-PDF with fixture coverage and explicit fidelity disclosure.
 3. Add slide-to-PNG/JPG batch export with page-range selection, progress, and bounded rendering.
 4. Enable legacy PPT only after independent route verification.

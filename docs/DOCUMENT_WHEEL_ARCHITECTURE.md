@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines the proposed drag-first workflow for text and word-processing documents. The current document route is conditionally implemented through the sandboxed Pandoc adapter; only detected, self-tested reader/writer combinations may appear. It currently enforces a 16 MiB input limit, blocks external resources, and does not provide PDF or filter routes. Complex layout fidelity is not guaranteed. See `docs/EPUB_WHEEL_ARCHITECTURE.md` for EPUB-specific behavior and `docs/PDF_WHEEL_ARCHITECTURE.md` for PDF workflows.
+This document defines the drag-first workflow for text and word-processing documents. The current routes include sandboxed Pandoc pairs and detected local DOCX-to-PDF engines. DOCX input is limited to 16 MiB and package expansion to 128 MiB. Complex layout fidelity is not guaranteed. See `docs/EPUB_WHEEL_ARCHITECTURE.md` for EPUB-specific behavior and `docs/PDF_WHEEL_ARCHITECTURE.md` for PDF workflows.
 
 Supported candidate inputs are DOCX, Markdown, TXT, HTML, and EPUB. Candidate outputs are DOCX, Markdown, TXT, HTML, and EPUB, but the wheel must use the actual intersection of verified installed capabilities. Do not advertise ODT, RTF output, RTFD, or text clippings until a separately verified route is added.
 
@@ -23,7 +23,7 @@ Build the output list from verified reader/writer pairs in the local capability 
 - EPUB conversions as enumerated in the EPUB architecture.
 - Same-family routes only when they perform a useful, tested transformation; do not show a no-op same-format conversion.
 
-Do not infer DOCX-to-PDF or office-to-PDF support from the presence of LibreOffice. Office conversion remains disabled until the subprocess is appropriately isolated from macros, external links/resources, user profiles, and untrusted input.
+DOCX/PPT/PPTX-to-PDF use the best detected local engine. LibreOffice and OpenOffice use headless mode with per-job temporary UserInstallation profiles. On Windows, Word and WPS Writer handle DOCX, and Microsoft PowerPoint handles PPT/PPTX through COM automation; macros and link updates are disabled. Each input is copied to a temporary job directory. FreeOffice is detection-only because its command-line PDF export opens a UI and is unavailable in FreeOffice. Keep input size and package validation limits in force; do not update linked content.
 
 Before queuing, identify likely fidelity loss for complex documents: page layout, fonts, tables, equations, tracked changes, comments, images, footnotes, and embedded objects. Keep the warning concise and specific to the route. The conversion remains local; source files are never overwritten.
 

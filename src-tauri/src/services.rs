@@ -367,6 +367,30 @@ impl AppState {
         backends.extend(pdf.info());
         backends.insert("pandoc".into(), documents.info());
         backends.insert("dxpdf".into(), documents.dxpdf_info());
+        backends.insert("libreoffice".into(), documents.libreoffice_info());
+        backends.insert("openoffice".into(), documents.openoffice_info());
+        backends.insert(
+            "freeoffice".into(),
+            documents.freeoffice_info(documents.detected_office_path("freeoffice")),
+        );
+        for (key, display_name) in [
+            ("microsoft-word", "Microsoft Word"),
+            ("microsoft-powerpoint", "Microsoft PowerPoint"),
+            ("wps-office", "WPS Office"),
+            ("wps-presentation", "WPS Presentation"),
+            ("freeoffice-presentation", "FreeOffice Presentations"),
+        ] {
+            let path = documents.detected_office_path(key);
+            let detected = path.is_some();
+            backends.insert(
+                key.into(),
+                serde_json::json!({ "available": path.is_some(), "path": path,
+                    "bundled": false,
+                    "conversionSupported": cfg!(windows) && detected && matches!(key,
+                        "microsoft-word" | "microsoft-powerpoint" | "wps-office"),
+                    "name": display_name }),
+            );
+        }
         Ok(Snapshot {
             files: data.files.clone(),
             jobs: data.jobs.clone(),
@@ -1017,7 +1041,14 @@ fn validate_settings(mut settings: Settings, patch: Value) -> Result<Settings, S
                         "qpdf",
                         "poppler",
                         "pandoc",
+                        "dxpdf",
                         "libreoffice",
+                        "openoffice",
+                        "freeoffice",
+                        "microsoft-word",
+                        "microsoft-powerpoint",
+                        "wps-office",
+                        "wps-presentation",
                     ]
                     .contains(&name.as_str())
                     {
@@ -1314,7 +1345,7 @@ fn run_local_job(
     let archive_create = job.operation == "create-archive";
     let archive_extract = job.operation == "extract";
     let pdf_job = input_ext == "pdf";
-    let document_job = ["txt", "md", "html", "docx", "epub", "rtf"].contains(&input_ext.as_str());
+    let document_job = ["txt", "md", "html", "docx", "epub", "rtf", "ppt", "pptx"].contains(&input_ext.as_str());
     let bytes = if ["pdf-browser", "sheet-browser"].contains(&job.operation.as_str()) {
         let id = job.options["artifact"]
             .as_str()
@@ -2001,7 +2032,7 @@ pub fn enqueue(
                     .lock()
                     .map_err(|_| "PDF backend is unavailable")?
                     .supports(&request.operation, &request.format);
-            let document = inspected.category == "document"
+            let document = ["document", "presentation"].contains(&inspected.category.as_str())
                 && request.operation == "convert"
                 && state
                     .documents
