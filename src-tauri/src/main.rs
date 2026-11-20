@@ -5,6 +5,7 @@ compile_error!("Santra supports only Linux and Windows desktop targets");
 
 mod archives;
 mod documents;
+mod diagnostics;
 mod media;
 mod pdf;
 mod processing;
@@ -247,6 +248,7 @@ fn show_wheel(app: &tauri::AppHandle, mode: &str, point: Option<(i32, i32)>) {
         }
         let new_drag = !window.is_visible().unwrap_or(false);
         if let Err(error) = place_wheel(&window, point) {
+            diagnostics::event("wheel placement unavailable");
             eprintln!("Wheel placement unavailable: {error}");
         }
         let _ = window.emit(
@@ -348,6 +350,7 @@ fn main() {
             services::file_action,
         ])
         .setup(|app| {
+            diagnostics::init(diagnostics::logs_directory(app.path().home_dir()?))?;
             let state = services::AppState::load(app.handle())?;
             app.manage(state);
             #[cfg(windows)]
@@ -373,6 +376,7 @@ fn main() {
                         } else if let Some(window) = app.get_webview_window(event.id().as_ref()) {
                             if window.label() == "wheel" {
                                 if let Err(error) = place_wheel(&window, None) {
+                                    diagnostics::event("wheel placement unavailable");
                                     eprintln!("Santra wheel placement unavailable: {error}");
                                 }
                             }
@@ -448,6 +452,7 @@ fn main() {
                 let app = window.app_handle();
                 let state = app.state::<services::AppState>();
                 if let Err(error) = state.record_drop(window.label(), paths) {
+                    diagnostics::event("native drop rejected");
                     eprintln!("Santra drop rejected: {error}");
                     let _ = window.emit("santra:native-drop-error", error);
                 } else {

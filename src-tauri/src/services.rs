@@ -310,6 +310,7 @@ impl AppState {
             return Err("Cancelled".into());
         }
         job.status = status.into();
+        crate::diagnostics::event(&format!("job {id}: {status}"));
         job.progress = if status == "completed" { 100 } else { 0 };
         job.output = output.clone();
         job.error = error;
@@ -1252,6 +1253,10 @@ fn schedule_job(app: AppHandle, id: String) -> Result<(), String> {
                 .cloned()
         };
         let Some(job) = job else { return };
+        crate::diagnostics::event(&format!(
+            "job {}: operation={} format={} started",
+            job.id, job.operation, job.format
+        ));
         let state = app.state::<AppState>();
         if state
             .update_job(&app, &id, "processing", None, None)
@@ -1290,6 +1295,8 @@ fn schedule_job(app: AppHandle, id: String) -> Result<(), String> {
                 let _ = state.update_job(&app, &id, "skipped", None, None);
             }
             Err(error) => {
+                // The original error can contain user paths or backend output.
+                crate::diagnostics::failure("job-failed", &format!("Job {id} failed"));
                 let _ = state.update_job(&app, &id, "failed", None, Some(error));
             }
         }

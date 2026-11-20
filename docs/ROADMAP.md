@@ -93,3 +93,7 @@ Document Shift routes are exposed per input only after a sandboxed Pandoc conver
 PDF and spreadsheet tool hosts have scoped window visibility permissions, and compact tool windows use transparent, rounded surfaces. Shared dialog and form component primitives retain local tool behavior.
 
 Tool dialogs and common controls use shared shadcn components with Radix dialog, checkbox, slider, select and collapsible primitives. File and colour pickers use browser-native inputs; previews and the citrus wheel retain their specialized rendering.
+
+# Local failure diagnostics
+
+The Tauri host automatically creates `.santra/logs/` under the user's home directory and writes a plain-text `DDMMYYHHMMSS.txt` session log at startup. Instrumented startup, job, and native wheel/drop events are appended to that file as they occur. A failed job or Rust panic writes a timestamped diagnostic there with version, platform, UTC time, failure category, and a bounded recent event timeline. Logs omit source paths, filenames, file contents, and raw backend errors. Diagnostics stay on the device and are never uploaded automatically.
