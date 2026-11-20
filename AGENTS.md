@@ -32,7 +32,6 @@
 - Prefer existing abstractions over new parallel systems.
 - Keep user-facing strings localization-ready and keyboard accessible.
 - Update `docs/ROADMAP.md`, `docs/CAPABILITIES.md`, and `docs/IMAGE_WHEEL_ARCHITECTURE.md` when behavior or support claims change.
-- Keep `resume-from-here.md` current when work is intentionally paused or handed off.
 - Do not retain generated artifacts, duplicate handoff notes, or reference assets unless they are used by source, tests, packaging, or active design documentation.
 
 ## Validation
