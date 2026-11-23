@@ -271,19 +271,65 @@ impl AppState {
                 .push("Saved jobs are unavailable".into()),
         }
         let concurrency = data.settings.concurrency;
-        let media = crate::media::detect(&data.settings.backend_paths);
-        let pdf = crate::pdf::detect(&data.settings.backend_paths);
-        let documents = crate::documents::detect(&data.settings.backend_paths);
         Ok(Self {
             data: Mutex::new(data),
             wheel_mode: Mutex::new("convert".into()),
             semaphore: Mutex::new(Arc::new(Semaphore::new(usize::from(concurrency)))),
-            media: Mutex::new(media),
-            pdf: Mutex::new(pdf),
-            documents: Mutex::new(documents),
+            media: Mutex::new(crate::media::MediaBackend::default()),
+            pdf: Mutex::new(crate::pdf::PdfBackend::default()),
+            documents: Mutex::new(crate::documents::DocumentBackend::default()),
             settings_file,
             jobs_file,
         })
+    }
+
+    /// Probe the optional local engines away from the startup path.
+    ///
+    /// Detection spawns several processes (FFmpeg feature listings, office
+    /// suite lookups, Pandoc/ExifTool version probes) and can take seconds.
+    /// Running it inside `setup` postponed `.manage()` until after the
+    /// workspace webview had loaded, so its first `bootstrap` call failed with
+    /// "state not managed" and the UI kept its default, engine-less snapshot
+    /// until the window was reloaded.
+    pub fn detect_backends(app: &AppHandle) {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let overrides = {
+                let state = app.state::<AppState>();
+                let Ok(data) = state.lock() else { return };
+                data.settings.backend_paths.clone()
+            };
+            let detected = tauri::async_runtime::spawn_blocking(move || {
+                (
+                    crate::media::detect(&overrides),
+                    crate::pdf::detect(&overrides),
+                    crate::documents::detect(&overrides),
+                )
+            })
+            .await;
+            let Ok((media, pdf, documents)) = detected else {
+                return;
+            };
+            let state = app.state::<AppState>();
+            {
+                let Ok(mut slot) = state.media.lock() else { return };
+                *slot = media;
+            }
+            {
+                let Ok(mut slot) = state.pdf.lock() else { return };
+                *slot = pdf;
+            }
+            {
+                let Ok(mut slot) = state.documents.lock() else { return };
+                *slot = documents;
+            }
+            let Ok(snapshot) = state.snapshot() else { return };
+            let _ = app.emit(
+                "santra:update",
+                serde_json::json!({ "backends": snapshot.backends,
+                    "capabilities": snapshot.capabilities, "platform": snapshot.platform }),
+            );
+        });
     }
 
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, Data>, String> {
