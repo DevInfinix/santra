@@ -85,7 +85,31 @@ export default function App() {
   const completedJobs = data.jobs.filter(job => job.status === 'completed');
   const settings = data.settings;
 
-  useEffect(() => { api.bootstrap().then(snapshot => { setData({ ...snapshot, settings: { ...defaultSettings, ...snapshot.settings, shortcuts: { ...defaultSettings.shortcuts, ...snapshot.settings?.shortcuts } } }); if (snapshot.files?.length) { setFiles(snapshot.files); setSelected(snapshot.files.map(file => file.id)); } }).catch(error => setNotice(String(error.message || error))); return api.onUpdate(update => { setData(previous => ({ ...previous, ...update })); if (update.files?.length) { setFiles(previous => [...new Map([...previous, ...update.files!].map(file => [file.path, file])).values()]); setSelected(previous => [...new Set([...previous, ...update.files!.map(file => file.id)])]); } }); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    // The webview can mount before the host has managed its state, so the first
+    // snapshot request may be rejected while startup is still finishing.
+    const loadSnapshot = async () => {
+      for (let attempt = 0; !cancelled; attempt += 1) {
+        try {
+          const snapshot = await api.bootstrap();
+          if (cancelled) return;
+          setData({ ...snapshot, settings: { ...defaultSettings, ...snapshot.settings, shortcuts: { ...defaultSettings.shortcuts, ...snapshot.settings?.shortcuts } } });
+          if (snapshot.files?.length) { setFiles(snapshot.files); setSelected(snapshot.files.map(file => file.id)); }
+          return;
+        } catch (error) {
+          if (attempt >= 3) { setNotice(error instanceof Error ? error.message : String(error)); return; }
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    };
+    void loadSnapshot();
+    const unsubscribe = api.onUpdate(update => {
+      setData(previous => ({ ...previous, ...update }));
+      if (update.files?.length) { setFiles(previous => [...new Map([...previous, ...update.files!].map(file => [file.path, file])).values()]); setSelected(previous => [...new Set([...previous, ...update.files!.map(file => file.id)])]); }
+    });
+    return () => { cancelled = true; unsubscribe(); };
+  }, []);
   useEffect(() => api.onNativeDrop?.(incoming => {
     if (!incoming.length) return;
     const mode = pendingNativeMode.current || dragModeRef.current || 'convert';
