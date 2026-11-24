@@ -1187,7 +1187,11 @@ pub async fn save_settings(
         .map_err(|_| "Santra queue is unavailable")? =
         Arc::new(Semaphore::new(usize::from(updated.concurrency)));
     let snapshot = state.snapshot()?;
-    let _ = app.emit("santra:update", serde_json::json!({ "settings": updated, "backends": snapshot.backends, "capabilities": snapshot.capabilities }));
+    let _ = app.emit(
+        "santra:update",
+        serde_json::json!({ "settings": updated, "backends": snapshot.backends,
+            "capabilities": snapshot.capabilities, "platform": snapshot.platform }),
+    );
     #[cfg(windows)]
     if previous.shortcuts != updated.shortcuts {
         crate::windows_watcher::restart(&app);
