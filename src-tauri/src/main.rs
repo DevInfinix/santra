@@ -353,6 +353,9 @@ fn main() {
             diagnostics::init(diagnostics::logs_directory(app.path().home_dir()?))?;
             let state = services::AppState::load(app.handle())?;
             app.manage(state);
+            // Engine probes run after the state is managed so the workspace can
+            // call commands as soon as its webview is ready.
+            services::AppState::detect_backends(app.handle());
             #[cfg(windows)]
             windows_watcher::start(app.handle());
             let args = std::env::args().collect::<Vec<_>>();
