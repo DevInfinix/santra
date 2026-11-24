@@ -3,9 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Capability, LocalFile } from "../../common/types";
+import { useTheme } from "../../common/useTheme";
 import PdfWorkspace from "./PdfWorkspace";
 type Context = { id: string; capability: Capability; files: LocalFile[]; format: string };
 export default function PdfToolHost() {
+  useTheme();
   const [context, setContext] = useState<Context | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {

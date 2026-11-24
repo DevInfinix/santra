@@ -12,6 +12,7 @@ interface MockControl {
   emitNativeDragOver(position: { x: number; y: number }): void;
   emitNativeDrop(files: Snapshot['files'], position: { x: number; y: number }): void;
   emitGlobalFiles(files: Snapshot['files'], mode: 'convert' | 'tools' | 'actions'): void;
+  globalFilesListeners(): number;
   emitImageContext(context: ImageEditorContext): void;
   emitVideoContext(context: VideoEditorContext): void;
   emitAudioContext(context: AudioEditorContext): void;
@@ -147,7 +148,7 @@ test.beforeEach(async ({ page }) => {
       onGlobalFiles: callback => { globalFilesListeners.add(callback); return () => { globalFilesListeners.delete(callback); }; },
       onUpdate: callback => { listeners.add(callback); return () => { listeners.delete(callback); }; },
     };
-    window.__santraTest = { state, calls, emit, emitWheelMode: (mode, newDrag) => { for (const listener of wheelModeListeners) listener(mode, newDrag); }, emitNativeDragEnter: files => { for(const listener of nativeDragEnterListeners) listener(structuredClone(files)); }, emitNativeDragOver: position => { for (const listener of nativeDragOverListeners) listener(position); }, emitNativeDrop: (files, position) => { for (const listener of nativeDropListeners) listener(files, position); }, emitGlobalFiles: (files, mode) => { for (const listener of globalFilesListeners) listener({ files, mode }); }, emitImageContext: context => { imageContext = structuredClone(context); for (const listener of imageContextListeners) listener(structuredClone(context)); }, emitVideoContext: context => { videoContext = structuredClone(context); for (const listener of videoContextListeners) listener(structuredClone(context)); }, emitAudioContext: context => { audioContext = structuredClone(context); for (const listener of audioContextListeners) listener(structuredClone(context)); } };
+    window.__santraTest = { state, calls, emit, emitWheelMode: (mode, newDrag) => { for (const listener of wheelModeListeners) listener(mode, newDrag); }, emitNativeDragEnter: files => { for(const listener of nativeDragEnterListeners) listener(structuredClone(files)); }, emitNativeDragOver: position => { for (const listener of nativeDragOverListeners) listener(position); }, emitNativeDrop: (files, position) => { for (const listener of nativeDropListeners) listener(files, position); }, emitGlobalFiles: (files, mode) => { for (const listener of globalFilesListeners) listener({ files, mode }); }, globalFilesListeners: () => globalFilesListeners.size, emitImageContext: context => { imageContext = structuredClone(context); for (const listener of imageContextListeners) listener(structuredClone(context)); }, emitVideoContext: context => { videoContext = structuredClone(context); for (const listener of videoContextListeners) listener(structuredClone(context)); }, emitAudioContext: context => { audioContext = structuredClone(context); for (const listener of audioContextListeners) listener(structuredClone(context)); } };
     Object.defineProperty(window, 'santra', { configurable: true, value: api });
   });
 });
@@ -191,14 +192,30 @@ test('empty workspace renders without exceptions', async ({ page }, testInfo) =>
   expect(errors).toEqual([]);
 });
 
-test('navigation keeps the white theme even with a dark system preference', async ({ page }, testInfo) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
+test('theme picker applies and persists a named dark palette', async ({ page }, testInfo) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.getByRole('button', { name: 'Toggle color theme' })).toHaveCount(0);
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('settings-white.png') });
+  await page.getByRole('combobox', { name: 'Appearance' }).selectOption('dracula');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dracula');
+  await expect(page.locator('html')).toHaveAttribute('data-theme-tone', 'dark');
+  await expect(page.locator('body')).toHaveCSS('color', 'rgb(248, 248, 242)');
+  await expect(page.locator('.settings-panel')).toHaveCSS('background-color', 'rgb(33, 34, 44)');
+  expect(await page.evaluate(() => window.__santraTest.calls.filter(call => call.method === 'saveSettings').at(-1)?.value)).toEqual({ theme: 'dracula' });
+  await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('settings-dracula.png') });
+});
+
+test('clicking a wheel slice selects the format in the output panel', async ({ page }) => {
+  await page.goto('/');
+  await addFiles(page);
+  await page.getByRole('button', { name: 'Choose an operation' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Choose what happens next' });
+  await doubleTap(page, 'Shift');
+  await page.getByRole('menuitem', { name: /^JPG/ }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.output-card')).toBeVisible();
+  await expect(page.locator('.output-card h2')).toHaveText('Convert image');
+  await expect(page.locator('.output-card select').first()).toHaveValue('jpg');
 });
 
 test('add files populates rows and mixed selections respect per-file routes', async ({ page }, testInfo) => {
@@ -421,9 +438,14 @@ test('global wheel keeps files available when a selected route fails', async ({ 
 
 test('workspace receives files from the global wheel with its selected mode', async ({ page }) => {
   await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Good things come in new formats.' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__santraTest.globalFilesListeners())).toBeGreaterThan(0);
   await page.evaluate(() => window.__santraTest.emitGlobalFiles([{ id: 'image', path: '/fixtures/pixel.png', name: 'pixel.png', ext: 'png', size: 120, category: 'image' }], 'tools'));
+  await expect(page.locator('.file-row')).toHaveCount(1);
+  const dialog = page.getByRole('dialog', { name: 'Choose what happens next' });
+  await expect(dialog.getByRole('tab', { name: /^Tools/ })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('checkbox', { name: 'Select pixel.png' })).toBeChecked();
-  await expect(page.getByRole('dialog', { name: 'Choose what happens next' }).getByRole('tab', { name: /^Tools/ })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('global image tools wheel shows image tools and hides generic archive creation', async ({ page }) => {

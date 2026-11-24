@@ -130,6 +130,14 @@ Run `npm run check:release` before packaging and `npm run release:report` afterw
 
 ## Pull requests
 
+## Changelog
+
+Every pull request updates [`CHANGELOG.md`](CHANGELOG.md) before review. Add a
+short entry under New features, Fixes, Breaking changes or Refactors. Describe
+the user-visible effect in one or two lines, not the implementation. Include
+small fixes and copy or layout changes; omit generated files and dependency
+churn that has no visible effect.
+
 Keep one focused purpose per pull request. Include:
 
 - A clear description of the change and its user impact.

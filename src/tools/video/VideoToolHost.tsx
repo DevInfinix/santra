@@ -2,10 +2,12 @@ import { Button as UiNativeButton } from '../../common/ui/primitives';
 import { useEffect, useState } from 'react';
 import type { VideoEditorContext } from '../../common/types';
 import { api } from '../../common/bridge';
+import { useTheme } from '../../common/useTheme';
 import VideoToolWindow from './VideoToolWindow';
 import './video-tool-window.css';
 
 export default function VideoToolHost() {
+  useTheme();
   const [context, setContext] = useState<VideoEditorContext | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {

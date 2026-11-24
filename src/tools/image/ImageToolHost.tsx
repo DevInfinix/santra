@@ -2,10 +2,12 @@ import { Button as UiNativeButton } from '../../common/ui/primitives';
 import { useEffect, useState } from 'react';
 import type { ImageEditorContext } from '../../common/types';
 import { api } from '../../common/bridge';
+import { useTheme } from '../../common/useTheme';
 import ImageToolWindow from './ImageToolWindow';
 import './image-tool-window.css';
 
 export default function ImageToolHost() {
+  useTheme();
   const [context, setContext] = useState<ImageEditorContext | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {

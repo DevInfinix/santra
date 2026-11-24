@@ -50,7 +50,7 @@ All operations are offline. Do not upload archive contents, filenames, paths, or
 
 ## UI source migration (Penpot frame 05)
 
-Frontend ownership now follows `src/tools/<family>`, `src/convert/<family>`, `src/action`, and `src/common`. See [UI structure](UI_STRUCTURE.md) for exact files and implemented/deferred frame coverage. Editors use white surfaces and `#ff5a00` accents; shortcuts remain configurable. This UI migration does not enable any additional backend route or certify proposed features above.
+Frontend ownership now follows `src/tools/<family>`, `src/convert/<family>`, `src/action`, and `src/common`. See [UI structure](UI_STRUCTURE.md) for exact files and implemented/deferred frame coverage. Editors follow the active theme palette; Light uses white surfaces and `#ff5a00` accents. Shortcuts remain configurable. This UI migration does not enable any additional backend route or certify proposed features above.
 
 ## Penpot frame 05 implementation follow-up
 

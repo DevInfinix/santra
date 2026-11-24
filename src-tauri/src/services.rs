@@ -74,7 +74,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            theme: "system".into(),
+            theme: "light".into(),
             output_folder: String::new(),
             collision: "rename".into(),
             concurrency: 2,
@@ -893,6 +893,13 @@ pub fn bootstrap(
     state.snapshot()
 }
 
+/// Compact windows (image, video, audio, preview) may not read the full
+/// snapshot, but they still need the current theme preference.
+#[tauri::command]
+pub fn current_theme(state: State<'_, AppState>) -> Result<String, String> {
+    Ok(state.lock()?.settings.theme.clone())
+}
+
 #[tauri::command]
 pub async fn inspect_paths(
     app: AppHandle,
@@ -1005,7 +1012,19 @@ fn validate_settings(mut settings: Settings, patch: Value) -> Result<Settings, S
         match key.as_str() {
             "theme" => {
                 let value = value.as_str().ok_or("Invalid theme")?;
-                if !["system", "light", "dark"].contains(&value) {
+                if ![
+                    "system",
+                    "light",
+                    "dark",
+                    "catppuccin",
+                    "dracula",
+                    "tokyo-night",
+                    "monokai",
+                    "nord",
+                    "gruvbox",
+                ]
+                .contains(&value)
+                {
                     return Err("Invalid theme".into());
                 }
                 settings.theme = value.into();

@@ -6,6 +6,7 @@ import { performFileAction } from '../action';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { Camera, Crop, EyeOff, Film, FlipHorizontal2, Gauge, Layers, Minimize2, Music2, RotateCw, Scaling, Scissors, Split, Tag, VolumeX, type LucideIcon } from 'lucide-react';
 import { api, defaultSettings } from './bridge';
+import { applyTheme } from './theme';
 import RadialWheel, { type WheelItem } from './RadialWheel';
 import type { Capability, LocalFile, Snapshot } from './types';
 import './global-wheel-window.css';
@@ -59,9 +60,19 @@ export default function GlobalWheelWindow() {
 
   useEffect(() => api.onUpdate(update => setSnapshot(previous=>({...previous,...update}))), []);
 
+  useEffect(() => applyTheme(snapshot.settings.theme), [snapshot.settings.theme]);
+
+  // The native host keeps a freshly created wheel hidden until this signal, so
+  // transparent webviews never flash during a cold start.
   useEffect(() => {
-    document.documentElement.dataset.theme = 'light';
-  }, [snapshot.settings.theme]);
+    let active = true;
+    const frame = requestAnimationFrame(() => {
+      if (!active) return;
+      const ready = api.wheelReady?.();
+      if (ready) void ready.catch(() => {});
+    });
+    return () => { active = false; cancelAnimationFrame(frame); };
+  }, []);
 
   useEffect(() => {
     void api.currentWheelMode?.().then(value => {
@@ -140,7 +151,9 @@ export default function GlobalWheelWindow() {
     try {
       const selectedChoice = targetChoice === undefined ? choiceRef.current : acceptedTarget;
       if (!selectedChoice) {
-        await api.finishGlobalWheel?.('background');
+        // An unselected drop is a review request, not a failure. Hand the files
+        // to the workspace with the same mode so the picker opens immediately.
+        await api.handoffGlobalFiles?.({ files: incoming, mode });
         return;
       }
       if (mode === 'actions') {
@@ -153,7 +166,7 @@ export default function GlobalWheelWindow() {
       const [capabilityId, format] = selectedChoice.split('|');
       const capability = capabilities.find(item => item.id === capabilityId && item.available && incoming.some(file => supports(item, file)));
       if (!capability) {
-        await api.finishGlobalWheel?.('background');
+        await api.handoffGlobalFiles?.({ files: incoming, mode, notice: 'That operation is no longer available for these files.' });
         return;
       }
       if (capability.category !== 'spreadsheet' && ['convert', 'create-archive'].includes(operationName(capability))) {
@@ -180,10 +193,27 @@ export default function GlobalWheelWindow() {
         return;
       }
       setFailure(message);
-      await api.finishGlobalWheel?.('background', noticeText(message));
+      // A failed route keeps the inspected files available for a manual retry.
+      await api.handoffGlobalFiles?.({ files: incoming, mode, notice: noticeText(message) });
     } finally {
       processing.current = false;
     }
+  }
+
+  async function chooseSlice(id: string) {
+    if (processing.current) return;
+    let incoming = hints;
+    if (!incoming.length || incoming.some(file => !file.path)) {
+      try {
+        const inspected = await api.currentNativeDrag?.();
+        if (inspected?.length) incoming = inspected;
+      } catch {}
+    }
+    if (!incoming.length) {
+      setFailure('Drop a file to choose an operation.');
+      return;
+    }
+    await processIncoming(incoming, id);
   }
 
   async function onDrop(event: DragEvent<HTMLElement>) {
@@ -236,7 +266,7 @@ export default function GlobalWheelWindow() {
         items={items}
         selected={choice}
         onHighlight={highlight}
-        onChoose={highlight}
+        onChoose={id => void chooseSlice(id)}
         dragging
         hideDescription={!(mode === 'convert' && externalFiles.some(file => file.category === 'document'))}
       />

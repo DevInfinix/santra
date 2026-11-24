@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useTheme } from "../../common/useTheme";
 import SpreadsheetEditor, { type SheetContext } from "./SpreadsheetEditor";
 export default function SpreadsheetHost() {
+  useTheme();
   const [context, setContext] = useState<SheetContext | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {

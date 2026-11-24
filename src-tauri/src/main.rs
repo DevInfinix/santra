@@ -15,7 +15,7 @@ mod subtitles;
 mod windows_watcher;
 
 use serde::Serialize;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
@@ -31,6 +31,12 @@ struct RuntimeInfo {
 }
 
 static WHEEL_VISIBILITY_GENERATION: AtomicU64 = AtomicU64::new(0);
+// The wheel webview is created on first use. Windows can briefly paint a
+// transparent webview before its first frame, so the wheel is shown only after
+// the renderer reports that it has painted.
+static WHEEL_READY: AtomicBool = AtomicBool::new(false);
+static WHEEL_PENDING: std::sync::Mutex<Option<(String, Option<(i32, i32)>)>> =
+    std::sync::Mutex::new(None);
 
 #[tauri::command]
 fn runtime_info() -> RuntimeInfo {
@@ -56,6 +62,31 @@ fn shell_wheel_mode(state: tauri::State<'_, services::AppState>) -> Result<Strin
         .lock()
         .map(|mode| mode.clone())
         .map_err(|_| "Wheel state is unavailable".into())
+}
+
+#[tauri::command]
+fn shell_wheel_ready(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<(), String> {
+    if window.label() != "wheel" {
+        return Err("Only the wheel can report readiness".into());
+    }
+    WHEEL_READY.store(true, Ordering::SeqCst);
+    let pending = WHEEL_PENDING
+        .lock()
+        .ok()
+        .and_then(|mut pending| pending.take());
+    let Some((mode, point)) = pending else {
+        return Ok(());
+    };
+    let wheel = aux_window(&app, "wheel")?;
+    place_wheel(&wheel, point)?;
+    let _ = wheel.emit(
+        "santra:wheel-mode",
+        serde_json::json!({ "mode": mode, "newDrag": true }),
+    );
+    wheel.show().map_err(|error| error.to_string())
 }
 
 static WHEEL_DRAG_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -261,14 +292,17 @@ fn wheel_request(args: &[String]) -> Option<WheelRequest> {
 }
 
 fn show_wheel(app: &tauri::AppHandle, mode: &str, point: Option<(i32, i32)>) {
-    let Some(window) = app.get_webview_window("wheel") else {
-        return;
-    };
     if ["convert", "tools", "actions"].contains(&mode) {
         WHEEL_VISIBILITY_GENERATION.fetch_add(1, Ordering::SeqCst);
         if let Ok(mut current) = app.state::<services::AppState>().wheel_mode.lock() {
             *current = mode.into();
         }
+        if let Ok(mut pending) = WHEEL_PENDING.lock() {
+            *pending = Some((mode.into(), point));
+        }
+        let Ok(window) = aux_window(app, "wheel") else {
+            return;
+        };
         let new_drag = !window.is_visible().unwrap_or(false);
         if let Err(error) = place_wheel(&window, point) {
             diagnostics::event("wheel placement unavailable");
@@ -278,11 +312,19 @@ fn show_wheel(app: &tauri::AppHandle, mode: &str, point: Option<(i32, i32)>) {
             "santra:wheel-mode",
             serde_json::json!({ "mode": mode, "newDrag": new_drag }),
         );
-        let _ = window.show();
+        if WHEEL_READY.load(Ordering::SeqCst) {
+            let _ = window.show();
+        } else {
+            // Keep the freshly created host hidden until the renderer has painted.
+            let _ = window.hide();
+        }
     }
 }
 
 fn hide_wheel(app: &tauri::AppHandle) {
+    if let Ok(mut pending) = WHEEL_PENDING.lock() {
+        *pending = None;
+    }
     let generation = WHEEL_VISIBILITY_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     let handle = app.clone();
     std::thread::spawn(move || {
@@ -330,8 +372,10 @@ fn main() {
             runtime_info,
             shell_hide_wheel,
             shell_wheel_mode,
+            shell_wheel_ready,
             current_native_drag,
             services::bootstrap,
+            services::current_theme,
             services::inspect_paths,
             services::consume_drop,
             services::choose_files,
@@ -399,13 +443,9 @@ fn main() {
                     .on_menu_event(|app, event| {
                         if event.id().as_ref() == "quit" {
                             app.exit(0);
+                        } else if event.id().as_ref() == "wheel" {
+                            show_wheel(app, "convert", None);
                         } else if let Some(window) = app.get_webview_window(event.id().as_ref()) {
-                            if window.label() == "wheel" {
-                                if let Err(error) = place_wheel(&window, None) {
-                                    diagnostics::event("wheel placement unavailable");
-                                    eprintln!("Santra wheel placement unavailable: {error}");
-                                }
-                            }
                             let _ = window.unminimize();
                             let _ = window.show();
                             let _ = window.set_focus();
