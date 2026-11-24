@@ -200,6 +200,29 @@ fn place_wheel(window: &WebviewWindow, requested: Option<(i32, i32)>) -> Result<
     Ok(())
 }
 
+/// Build one of the auxiliary windows declared with `create: false`.
+///
+/// Creating them during setup gave every cold start six extra webviews that
+/// Windows painted blank before the workspace was ready. They are created the
+/// first time they are needed and reused afterwards.
+pub(crate) fn aux_window(app: &tauri::AppHandle, label: &str) -> Result<WebviewWindow, String> {
+    if let Some(window) = app.get_webview_window(label) {
+        return Ok(window);
+    }
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == label)
+        .cloned()
+        .ok_or_else(|| format!("{label} window is unavailable"))?;
+    tauri::WebviewWindowBuilder::from_config(app, &config)
+        .map_err(|error| error.to_string())?
+        .build()
+        .map_err(|error| error.to_string())
+}
+
 #[derive(Debug, PartialEq)]
 struct WheelRequest {
     action: &'static str,

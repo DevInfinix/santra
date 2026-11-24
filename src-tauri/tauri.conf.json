@@ -36,6 +36,7 @@
       },
       {
         "label": "image",
+        "create": false,
         "title": "Santra image editor",
         "url": "index.html?santra-image-tool=1",
         "width": 824,
@@ -48,6 +49,7 @@
       },
       {
         "label": "video",
+        "create": false,
         "title": "Santra video editor",
         "url": "index.html?santra-video-tool=1",
         "width": 824,
@@ -60,6 +62,7 @@
       },
       {
         "label": "audio",
+        "create": false,
         "title": "Santra audio editor",
         "url": "index.html?santra-audio-tool=1",
         "width": 824,
@@ -72,6 +75,7 @@
       },
       {
         "label": "pdf",
+        "create": false,
         "title": "Santra PDF tools",
         "url": "index.html?santra-pdf-tool=1",
         "width": 824,
@@ -84,6 +88,7 @@
       },
       {
         "label": "spreadsheet",
+        "create": false,
         "title": "Santra spreadsheet tools",
         "url": "index.html?santra-sheet-tool=1",
         "width": 824,
