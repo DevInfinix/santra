@@ -2724,9 +2724,7 @@ pub fn open_image_tool(
     require_window(&window, &["workspace", "wheel", "pdf", "spreadsheet"])?;
     let context = editor_context(&state, request, "image")?;
     state.lock()?.image_context = Some(context.clone());
-    let window = app
-        .get_webview_window("image")
-        .ok_or("Image editor window is unavailable")?;
+    let window = crate::aux_window(&app, "image")?;
     window.show().map_err(|error| error.to_string())?;
     let _ = app.emit_to("image", "santra:editor-context", &context);
     window.set_focus().map_err(|error| error.to_string())?;
@@ -2743,9 +2741,7 @@ pub fn open_video_tool(
     require_window(&window, &["workspace", "wheel", "pdf", "spreadsheet"])?;
     let context = editor_context(&state, request, "video")?;
     state.lock()?.video_context = Some(context.clone());
-    let window = app
-        .get_webview_window("video")
-        .ok_or("Video editor window is unavailable")?;
+    let window = crate::aux_window(&app, "video")?;
     window.show().map_err(|error| error.to_string())?;
     let _ = app.emit_to("video", "santra:editor-context", &context);
     window.set_focus().map_err(|error| error.to_string())?;
@@ -3070,9 +3066,7 @@ pub fn select_global_operation(
         let context = serde_json::json!({"id":Uuid::new_v4().to_string(),"capability":capability,"files":selected,"format":request.format,"automatic":automatic});
         state.lock()?.spreadsheet_context = Some(context.clone());
         window.hide().map_err(|e| e.to_string())?;
-        let editor = app
-            .get_webview_window("spreadsheet")
-            .ok_or("Spreadsheet popup is unavailable")?;
+        let editor = crate::aux_window(&app, "spreadsheet")?;
         app.emit_to("spreadsheet", "santra:sheet-context", &context)
             .map_err(|e| e.to_string())?;
         if !automatic {
@@ -3092,9 +3086,7 @@ pub fn select_global_operation(
         )?;
         state.lock()?.pdf_context = Some(context.clone());
         window.hide().map_err(|e| e.to_string())?;
-        let editor = app
-            .get_webview_window("pdf")
-            .ok_or("PDF popup is unavailable")?;
+        let editor = crate::aux_window(&app, "pdf")?;
         app.emit_to("pdf", "santra:pdf-context", &context)
             .map_err(|e| e.to_string())?;
         editor.show().map_err(|e| e.to_string())?;
@@ -3923,9 +3915,7 @@ pub fn open_audio_tool(
     require_window(&window, &["workspace", "wheel"])?;
     let context = editor_context(&state, request, "audio")?;
     state.lock()?.audio_context = Some(context.clone());
-    let window = app
-        .get_webview_window("audio")
-        .ok_or("Audio editor window is unavailable")?;
+    let window = crate::aux_window(&app, "audio")?;
     window.show().map_err(|error| error.to_string())?;
     let _ = app.emit_to("audio", "santra:editor-context", &context);
     window.set_focus().map_err(|error| error.to_string())?;
