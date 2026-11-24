@@ -96,7 +96,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: santra-media: http://santra-media.localhost; media-src 'self' blob: santra-media: http://santra-media.localhost; connect-src 'self' ws://127.0.0.1:* santra-media: http://santra-media.localhost; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:; frame-src 'self' about:"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: santra-media: http://santra-media.localhost; media-src 'self' blob: santra-media: http://santra-media.localhost; connect-src 'self' ipc: ipc.localhost http://ipc.localhost ws://127.0.0.1:* santra-media: http://santra-media.localhost; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:; frame-src 'self' about:"
     }
   },
   "bundle": {
