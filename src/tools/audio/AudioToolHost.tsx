@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { AudioEditorContext } from '../../common/types';
 import { api } from '../../common/bridge';
+import { useTheme } from '../../common/useTheme';
 import AudioToolWindow from './AudioToolWindow';
 import './audio.css';
 
 export default function AudioToolHost() {
+  useTheme();
   const [context, setContext] = useState<AudioEditorContext | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {

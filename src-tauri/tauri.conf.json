@@ -23,6 +23,7 @@
       },
       {
         "label": "wheel",
+        "create": false,
         "title": "Santra wheel",
         "url": "index.html?santra-wheel=1",
         "width": 520,

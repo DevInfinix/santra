@@ -47,6 +47,9 @@ export interface Bridge {
   onWheelMode?(callback: (mode: string, newDrag?: boolean) => void): () => void;
   finishGlobalWheel?(page?: 'converter' | 'activity' | 'background', notice?: string): Promise<void>;
   currentWheelMode?(): Promise<string>;
+  wheelReady?(): Promise<void>;
+  currentTheme?(): Promise<string>;
+  currentNativeDrag?(): Promise<LocalFile[]>;
   selectGlobalOperation?(request: { capabilityId: string; format: string; files: LocalFile[] }): Promise<void>;
   handoffGlobalFiles?(request: { files: LocalFile[]; mode: 'convert' | 'tools' | 'actions'; notice?: string }): Promise<void>;
   onGlobalOperation?(callback: (request: { capabilityId: string; format: string; files: LocalFile[] }) => void): () => void;

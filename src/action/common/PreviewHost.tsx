@@ -2,10 +2,12 @@ import { NativeButton as UiNativeButton } from '../../common/ui/primitives';
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { api } from '../../common/bridge';
+import { useTheme } from '../../common/useTheme';
 import type { LocalFile } from '../../common/types';
 import './preview-window.css';
 
 export default function PreviewHost() {
+  useTheme();
   const [file, setFile] = useState<LocalFile | null>(null);
   const [url, setUrl] = useState('');
   const [waveform, setWaveform] = useState('');

@@ -1,6 +1,6 @@
 # UI structure and Penpot migration
 
-The reference is the connected Penpot file `64ee36db-f4d2-8047-8008-dc267fe60b4f`, page `eff82248-f6ef-8013-8008-dc36d495e2bb`. Frames 00–10 were inspected through MCP, including exported editor and wheel images. Its geometry and interaction patterns inform the app; the desktop uses white surfaces and `#ff5a00` accents instead of the reference's cream and varied oranges.
+The reference is the connected Penpot file `64ee36db-f4d2-8047-8008-dc267fe60b4f`, page `eff82248-f6ef-8013-8008-dc36d495e2bb`. Frames 00–10 were inspected through MCP, including exported editor and wheel images. Its geometry and interaction patterns inform the app; the desktop uses the active theme palette with `#ff5a00` as the default citrus accent instead of the reference's cream and varied oranges. Light is the default; Settings also offers Dark, Match system and named community palettes.
 
 ## Source ownership
 
